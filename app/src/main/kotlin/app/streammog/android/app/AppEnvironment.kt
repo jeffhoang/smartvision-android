@@ -46,6 +46,7 @@ class AppEnvironment private constructor(
                 presetStore = presetStore,
                 sessionHistoryStore = sessionHistoryStore,
                 entitlements = entitlements,
+                appContext = context.applicationContext,
             )
 
             return AppEnvironment(
