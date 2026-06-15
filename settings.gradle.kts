@@ -38,6 +38,8 @@ dependencyResolutionManagement {
                     ?: localProperties.getProperty("github_token")
             }
         }
+        // RootEncoder RTMP library
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

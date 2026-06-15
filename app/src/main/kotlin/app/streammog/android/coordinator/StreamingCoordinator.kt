@@ -46,8 +46,8 @@ class StreamingCoordinator(
         glassesClient.statusDidChange = { status ->
             _deviceStatus.value = status
         }
-        glassesClient.videoBufferDidOutput = { buffer ->
-            streamTransport.appendVideoBuffer(buffer)
+        glassesClient.videoBufferDidOutput = { frame ->
+            streamTransport.appendVideoBuffer(frame)
         }
         streamTransport.healthDidChange = { health ->
             _streamHealth.value = health

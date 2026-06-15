@@ -2,8 +2,8 @@ package app.streammog.android.domain.protocol
 
 import app.streammog.android.domain.model.StreamHealth
 import app.streammog.android.domain.model.StreamPreset
+import app.streammog.android.domain.model.VideoFrameData
 import app.streammog.android.domain.model.VideoTransformSettings
-import java.nio.ByteBuffer
 
 sealed class StreamingTransportEvent {
     object Connecting : StreamingTransportEvent()
@@ -20,8 +20,7 @@ interface StreamingTransport {
     var eventDidChange: ((StreamingTransportEvent) -> Unit)?
 
     suspend fun startStreaming(preset: StreamPreset)
-    // ByteBuffer replaces CMSampleBuffer from the iOS pipeline
-    suspend fun appendVideoBuffer(buffer: ByteBuffer)
+    suspend fun appendVideoBuffer(frame: VideoFrameData)
     suspend fun updateAudioSettings(preset: StreamPreset)
     suspend fun updateVideoTransform(settings: VideoTransformSettings)
     suspend fun stopStreaming()

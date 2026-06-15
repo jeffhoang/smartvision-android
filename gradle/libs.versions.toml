@@ -12,6 +12,7 @@ serializationJson = "1.8.1"
 biometric = "1.2.0-alpha05"
 navigationCompose = "2.8.5"
 mwdat = "0.7.0"
+rootencoder = "2.5.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +33,7 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 mwdat-core = { group = "com.meta.wearable", name = "mwdat-core", version.ref = "mwdat" }
 mwdat-camera = { group = "com.meta.wearable", name = "mwdat-camera", version.ref = "mwdat" }
 mwdat-mockdevice = { group = "com.meta.wearable", name = "mwdat-mockdevice", version.ref = "mwdat" }
+rootencoder = { group = "com.github.pedroSG94.RootEncoder", name = "library", version.ref = "rootencoder" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
