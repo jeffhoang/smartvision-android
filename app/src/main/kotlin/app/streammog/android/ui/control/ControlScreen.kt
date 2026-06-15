@@ -1171,7 +1171,7 @@ private fun PreviewToolsTray(
     onDismiss: () -> Unit,
     onUpdate: (VideoTransformSettings) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     var localBrightness by remember { mutableFloatStateOf(settings.brightness.toFloat()) }
     var localContrast by remember { mutableFloatStateOf(settings.contrast.toFloat()) }
@@ -1185,6 +1185,7 @@ private fun PreviewToolsTray(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
+        scrimColor = Color.Black.copy(alpha = 0.30f),
     ) {
         Column(
             modifier = Modifier
