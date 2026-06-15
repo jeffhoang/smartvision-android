@@ -2,17 +2,13 @@ package app.streammog.android
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import app.streammog.android.ui.RootScreen
+import app.streammog.android.ui.theme.StreamMogTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -23,48 +19,53 @@ class MainActivity : ComponentActivity() {
         app.setCurrentActivity(this)
         enableEdgeToEdge()
 
-        // Trigger environment bootstrap on first launch
         val env = app.environment
 
-        // Handle deep link if app was cold-started via Meta AI callback
         intent?.data?.let { uri ->
-            lifecycleScope.launch {
-                env.glassesClient.handleDeepLink(uri)
-            }
+            lifecycleScope.launch { env.glassesClient.handleDeepLink(uri) }
         }
 
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    // Phase 4: replace with RootView (Scaffold + NavigationBar)
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text("StreamMog — Phase 1 skeleton (${env.runtimeMode.displayName} mode)")
-                    }
-                }
+            StreamMogTheme {
+                RootScreen(
+                    coordinator = env.coordinator,
+                    diagnosticsStore = env.diagnosticsStore,
+                    glassesClient = env.glassesClient,
+                    runtimeMode = env.runtimeMode,
+                    entitlements = env.entitlements,
+                    onKeepScreenOn = { keepOn ->
+                        if (keepOn) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                    },
+                )
             }
         }
     }
 
-    // Called when Meta AI deep-links back while the app is already running (singleTask)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.data?.let { uri ->
-            lifecycleScope.launch {
-                app.environment.glassesClient.handleDeepLink(uri)
-            }
+            lifecycleScope.launch { app.environment.glassesClient.handleDeepLink(uri) }
         }
     }
 
     override fun onResume() {
         super.onResume()
         app.setCurrentActivity(this)
+        app.environment.coordinator.handleAppForeground()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        app.environment.coordinator.handleAppBackground()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (app.currentActivity === this) {
-            app.setCurrentActivity(null)
-        }
+        if (app.currentActivity === this) app.setCurrentActivity(null)
     }
 }

@@ -68,5 +68,6 @@ dependencies {
     implementation(libs.mwdat.camera)
     debugImplementation(libs.mwdat.mockdevice)
     implementation(libs.rootencoder)
+    implementation(libs.androidx.material.icons.extended)
     debugImplementation(libs.androidx.ui.tooling)
 }
