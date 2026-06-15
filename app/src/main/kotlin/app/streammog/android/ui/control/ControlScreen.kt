@@ -4,11 +4,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,39 +19,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
-import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.CastConnected
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.LinkOff
-import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.OpenInFull
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.VideocamOff
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -75,6 +74,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +94,8 @@ import app.streammog.android.ui.theme.StreamMogTeal
 import app.streammog.android.ui.theme.StreamMogWarning
 import kotlin.math.roundToInt
 
+// ── Main screen ──────────────────────────────────────────────────────────────
+
 @Composable
 fun ControlScreen(coordinator: StreamingCoordinator) {
     val streamingState by coordinator.streamingState.collectAsState()
@@ -109,8 +111,12 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
 
     var showPreviewTools by remember { mutableStateOf(false) }
     var showStatusTray by remember { mutableStateOf(false) }
+    var isPreviewExpanded by remember { mutableStateOf(false) }
 
-    // Alerts
+    // Inline status: error takes priority over warning
+    val statusMessage = deviceStatus.lastError ?: systemWarning
+    val statusIsError = deviceStatus.lastError != null
+
     if (exportAlert != null) {
         AlertDialog(
             onDismissRequest = { coordinator.dismissExportAlert() },
@@ -128,101 +134,61 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // ── State Banner ──
-        StateBanner(
-            streamingState = streamingState,
-            streamDuration = streamDuration,
-        )
-
-        // ── Preview / Snapshot card ──
-        PreviewCard(
-            deviceStatus = deviceStatus,
-            previewSnapshot = previewSnapshot,
-            streamingState = streamingState,
-        )
-
-        // ── Tray toggle buttons ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 16.dp)
+                .padding(top = 12.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TextButton(
-                onClick = { showPreviewTools = true },
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = if (!previewSettings.isIdentityTransform) StreamMogTeal
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                Icon(Icons.Outlined.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Preview Tools", style = MaterialTheme.typography.labelMedium)
-                if (!previewSettings.isIdentityTransform) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier.size(6.dp).clip(CircleShape).background(StreamMogTeal),
-                    )
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            TextButton(
-                onClick = { showStatusTray = true },
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Status", style = MaterialTheme.typography.labelMedium)
-            }
+            PreviewCard(
+                modifier = Modifier.weight(1f),
+                deviceStatus = deviceStatus,
+                previewSnapshot = previewSnapshot,
+                streamHealth = streamHealth,
+                streamDuration = streamDuration,
+                previewSettings = previewSettings,
+                selectedPreset = selectedPreset,
+                onExpand = { isPreviewExpanded = true },
+            )
+
+            RunCard(
+                streamingState = streamingState,
+                deviceStatus = deviceStatus,
+                selectedPreset = selectedPreset,
+                statusMessage = statusMessage,
+                statusIsError = statusIsError,
+                onConnect = { coordinator.connectGlasses() },
+                onStartSession = { coordinator.startSession() },
+                onStartStreaming = { coordinator.startStreaming() },
+                onStopStreaming = { coordinator.stopStreaming() },
+                onStopAll = { coordinator.stopAll() },
+                onResetSession = { coordinator.resetSession() },
+                onLooks = { showPreviewTools = true },
+                onStatus = { showStatusTray = true },
+            )
         }
 
-        // ── System warning ──
-        AnimatedVisibility(visible = systemWarning != null, enter = fadeIn(), exit = fadeOut()) {
-            if (systemWarning != null) {
-                WarningBanner(message = systemWarning!!)
-            }
-        }
-
-        // ── Last error ──
-        if (deviceStatus.lastError != null) {
-            ErrorBanner(message = deviceStatus.lastError!!)
-        }
-
-        // ── Stream health (visible only while streaming/recovering) ──
         AnimatedVisibility(
-            visible = streamingState is StreamingState.Streaming || streamingState is StreamingState.Recovering,
+            visible = isPreviewExpanded,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            StreamHealthCard(health = streamHealth, preset = selectedPreset)
+            ExpandedPreviewOverlay(
+                previewSnapshot = previewSnapshot,
+                streamHealth = streamHealth,
+                streamDuration = streamDuration,
+                previewSettings = previewSettings,
+                selectedPreset = selectedPreset,
+                onDismiss = { isPreviewExpanded = false },
+                onLooks = { showPreviewTools = true },
+                onStatus = { showStatusTray = true },
+            )
         }
-
-        // ── Action buttons ──
-        ActionButtonsCard(
-            streamingState = streamingState,
-            deviceStatus = deviceStatus,
-            preset = selectedPreset,
-            onConnect = { coordinator.connectGlasses() },
-            onStartSession = { coordinator.startSession() },
-            onStartStreaming = { coordinator.startStreaming() },
-            onStopStreaming = { coordinator.stopStreaming() },
-            onStopAll = { coordinator.stopAll() },
-            onResetSession = { coordinator.resetSession() },
-            onRunTestStream = { coordinator.runTestStream() },
-        )
-
-        Spacer(Modifier.height(16.dp))
     }
 
-    // ── Preview Tools tray ──
     if (showPreviewTools) {
         PreviewToolsTray(
             settings = previewSettings,
@@ -230,8 +196,6 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
             onUpdate = { coordinator.updatePreviewSettings(it) },
         )
     }
-
-    // ── Status tray ──
     if (showStatusTray) {
         StatusTray(
             streamingState = streamingState,
@@ -247,7 +211,646 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
     }
 }
 
-// ── Status Tray ─────────────────────────────────────────────────────────────
+// ── Preview card ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun PreviewCard(
+    deviceStatus: DeviceStatus,
+    previewSnapshot: app.streammog.android.domain.model.PreviewSnapshot?,
+    streamHealth: StreamHealth,
+    streamDuration: StreamSessionDuration,
+    previewSettings: VideoTransformSettings,
+    selectedPreset: StreamPreset,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val hasSignal = previewSnapshot != null
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.CropFree,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "Preview",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable(onClick = onExpand),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.OpenInFull,
+                            contentDescription = "Expand",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    StatusPill(
+                        title = if (hasSignal) "Signal" else "No signal",
+                        color = if (hasSignal) StreamMogTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Video area with HUD overlay — fills remaining card height
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Color.Black),
+            ) {
+                // Content — no signal or has signal
+                if (!hasSignal) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.VideocamOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = Color.White.copy(alpha = 0.28f),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Waiting for camera frames",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.75f),
+                        )
+                        Text(
+                            "Start Session to preview the DAT feed",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Cast,
+                            contentDescription = null,
+                            tint = StreamMogTeal,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Text(
+                            "Frame ${previewSnapshot!!.frameIndex}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                        Text(
+                            previewSnapshot.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+
+                // HUD overlay (always shown)
+                Column(
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        HudChip("${streamHealth.fps.roundToInt()} fps")
+                        HudChip(streamDuration.displayText)
+                        val summary = previewSettings.summary
+                        if (summary.isNotEmpty()) HudChip(summary)
+                    }
+                    HudInfoText(
+                        "Output ${selectedPreset.targetBitrateKbps} kbps @ ${selectedPreset.targetFPS} fps"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudChip(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = Color.White,
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+@Composable
+private fun HudInfoText(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = Color.White.copy(alpha = 0.85f),
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+// ── Expanded preview overlay ──────────────────────────────────────────────────
+
+@Composable
+private fun ExpandedPreviewOverlay(
+    previewSnapshot: app.streammog.android.domain.model.PreviewSnapshot?,
+    streamHealth: StreamHealth,
+    streamDuration: StreamSessionDuration,
+    previewSettings: VideoTransformSettings,
+    selectedPreset: StreamPreset,
+    onDismiss: () -> Unit,
+    onLooks: () -> Unit,
+    onStatus: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+    ) {
+        // Content
+        if (previewSnapshot == null) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.VideocamOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(72.dp),
+                    tint = Color.White.copy(alpha = 0.28f),
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Waiting for camera frames",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.75f),
+                )
+                Text(
+                    "Start Session to preview the DAT feed",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.45f),
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Cast,
+                    contentDescription = null,
+                    tint = StreamMogTeal,
+                    modifier = Modifier.size(56.dp),
+                )
+                Text(
+                    "Frame ${previewSnapshot.frameIndex}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+                Text(
+                    previewSnapshot.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
+        // HUD chips at top-left
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HudChip("${streamHealth.fps.roundToInt()} fps")
+                HudChip(streamDuration.displayText)
+                val summary = previewSettings.summary
+                if (summary.isNotEmpty()) HudChip(summary)
+            }
+            HudInfoText(
+                "Output ${selectedPreset.targetBitrateKbps} kbps @ ${selectedPreset.targetFPS} fps"
+            )
+        }
+
+        // Top-right controls: close
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "Close",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        // Bottom tool strip: Looks | Status
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OverlayIconButton(
+                icon = Icons.Outlined.Tune,
+                label = "Looks",
+                onClick = onLooks,
+            )
+            OverlayIconButton(
+                icon = Icons.Outlined.BarChart,
+                label = "Status",
+                onClick = onStatus,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OverlayIconButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.80f),
+            modifier = Modifier.padding(top = 5.dp),
+        )
+    }
+}
+
+// ── Run card ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun RunCard(
+    streamingState: StreamingState,
+    deviceStatus: DeviceStatus,
+    selectedPreset: StreamPreset,
+    statusMessage: String?,
+    statusIsError: Boolean,
+    onConnect: () -> Unit,
+    onStartSession: () -> Unit,
+    onStartStreaming: () -> Unit,
+    onStopStreaming: () -> Unit,
+    onStopAll: () -> Unit,
+    onResetSession: () -> Unit,
+    onLooks: () -> Unit,
+    onStatus: () -> Unit,
+) {
+    val isConnected = deviceStatus.connectionState == ConnectionState.CONNECTED
+    val isStreaming = streamingState is StreamingState.Streaming
+    val isRecovering = streamingState is StreamingState.Recovering
+    val isBusy = streamingState is StreamingState.StartingStream ||
+        streamingState is StreamingState.ConnectingGlasses
+    val sessionRunning = deviceStatus.sessionState == SessionState.RUNNING ||
+        deviceStatus.sessionState == SessionState.PREPARING
+    val canStartStream = isConnected
+
+    // "Ready in 1 tap" means connected AND session running AND not busy
+    val canStartAction = canStartStream && !isStreaming && !isBusy &&
+        !isRecovering && deviceStatus.sessionState == SessionState.RUNNING
+
+    // Header pill
+    val (pillText, pillColor) = when {
+        canStartAction -> "Ready in 1 tap" to StreamMogTeal
+        isStreaming -> (if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Recording now" else "Live now") to StreamMogTeal
+        isRecovering || isBusy -> "Starting" to StreamMogWarning
+        streamingState is StreamingState.Failed -> "Needs prep" to StreamMogError
+        isConnected -> "Needs prep" to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> "Needs prep" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    // Primary button content
+    val primaryTitle: String
+    val primarySubtitle: String
+    val primaryColor: Color
+    val primaryIcon: ImageVector
+    val primaryEnabled: Boolean
+    val primaryAction: () -> Unit
+
+    when {
+        isStreaming || isRecovering -> {
+            primaryTitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Stop Recording" else "Stop Stream"
+            primarySubtitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
+                "Recording is active on this phone." else "Live stream is active. Tap to end it cleanly."
+            primaryColor = StreamMogError
+            primaryIcon = Icons.Outlined.StopCircle
+            primaryEnabled = true
+            primaryAction = onStopStreaming
+        }
+        isBusy -> {
+            primaryTitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Starting Recording…" else "Starting Live…"
+            primarySubtitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
+                "Preparing local recording…" else "Handshaking with the live destination…"
+            primaryColor = MaterialTheme.colorScheme.primary
+            primaryIcon = Icons.Outlined.Cast
+            primaryEnabled = false
+            primaryAction = {}
+        }
+        else -> {
+            primaryTitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Start Recording" else "Go Live"
+            primarySubtitle = when {
+                !canStartStream -> "Connect glasses first. This becomes one tap once the session is ready."
+                deviceStatus.sessionState != SessionState.RUNNING ->
+                    "Start Session first. Once frames are flowing, the main button is your one-tap start."
+                else -> if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
+                    "Session is ready. Tap to begin recording." else "Session is ready. Tap to go live."
+            }
+            primaryColor = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
+                MaterialTheme.colorScheme.tertiary else StreamMogTeal
+            primaryIcon = Icons.Outlined.Cast
+            primaryEnabled = canStartAction
+            primaryAction = onStartStreaming
+        }
+    }
+
+    var showMoreMenu by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Header: "Run" label + status pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        if (isConnected) Icons.Outlined.CastConnected else Icons.AutoMirrored.Outlined.BluetoothSearching,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = pillColor,
+                    )
+                    Text(
+                        "Run",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                StatusPill(title = pillText, color = pillColor)
+            }
+
+            // Inline status/warning (if any)
+            AnimatedVisibility(visible = statusMessage != null, enter = fadeIn(), exit = fadeOut()) {
+                if (statusMessage != null) {
+                    InlineControlStatus(message = statusMessage, isError = statusIsError)
+                }
+            }
+
+            // Primary run button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(primaryColor.copy(alpha = if (primaryEnabled) 1f else 0.5f))
+                    .clickable(enabled = primaryEnabled, onClick = primaryAction)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(
+                        primaryIcon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            primaryTitle,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        )
+                        Text(
+                            primarySubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = if (primaryEnabled) 0.85f else 0.70f),
+                        )
+                    }
+                }
+            }
+
+            // Icon button row: Connect | Session | Looks | Status | More
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OperatorIconButton(
+                    icon = if (isConnected) Icons.Outlined.CastConnected else Icons.AutoMirrored.Outlined.BluetoothSearching,
+                    label = "Connect",
+                    isActive = canStartStream,
+                    onClick = onConnect,
+                    modifier = Modifier.weight(1f),
+                )
+                OperatorIconButton(
+                    icon = Icons.Outlined.PlayArrow,
+                    label = "Session",
+                    isActive = sessionRunning,
+                    onClick = onStartSession,
+                    enabled = isConnected && !sessionRunning && !isBusy,
+                    modifier = Modifier.weight(1f),
+                )
+                OperatorIconButton(
+                    icon = Icons.Outlined.Tune,
+                    label = "Looks",
+                    onClick = onLooks,
+                    modifier = Modifier.weight(1f),
+                )
+                OperatorIconButton(
+                    icon = Icons.Outlined.BarChart,
+                    label = "Status",
+                    onClick = onStatus,
+                    modifier = Modifier.weight(1f),
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    OperatorIconButton(
+                        icon = Icons.Outlined.MoreHoriz,
+                        label = "More",
+                        onClick = { showMoreMenu = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    DropdownMenu(
+                        expanded = showMoreMenu,
+                        onDismissRequest = { showMoreMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Reset Session") },
+                            onClick = { onResetSession(); showMoreMenu = false },
+                        )
+                        if (isStreaming || isRecovering || isBusy) {
+                            DropdownMenuItem(
+                                text = { Text("Stop All Activity", color = StreamMogError) },
+                                onClick = { onStopAll(); showMoreMenu = false },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OperatorIconButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false,
+    enabled: Boolean = true,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    if (isActive) StreamMogTeal.copy(alpha = 0.15f)
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                )
+                .then(
+                    if (isActive) Modifier.border(1.dp, StreamMogTeal.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                modifier = Modifier.size(20.dp),
+                tint = when {
+                    isActive -> StreamMogTeal
+                    !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isActive) StreamMogTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun InlineControlStatus(message: String, isError: Boolean) {
+    val color = if (isError) StreamMogError else StreamMogWarning
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            if (isError) Icons.Outlined.ErrorOutline else Icons.Outlined.Warning,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(14.dp).padding(top = 1.dp),
+        )
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+// ── Status Tray ───────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -263,10 +866,8 @@ private fun StatusTray(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     val isStreaming = streamingState is StreamingState.Streaming
 
-    // ── Derived strings (mirror iOS RunSummaryCard logic) ──
     val healthTitle = when {
         streamingState is StreamingState.Recovering -> "Reconnect"
         !isStreaming -> "Standby"
@@ -358,7 +959,6 @@ private fun StatusTray(
         previewSnapshot == null -> "Start Session and wait for frames."
         else -> null
     }
-
     val focusColor = when {
         !deviceStatus.lastError.isNullOrEmpty() -> StreamMogError
         !systemWarning.isNullOrEmpty() -> StreamMogWarning
@@ -376,7 +976,7 @@ private fun StatusTray(
         "Audio" to audioLabel,
         "Reconnects" to "${streamHealth.reconnectCount}",
         "Glasses" to glassesBatteryLabel,
-        "Phone" to phoneBatteryLabel,
+        "iPhone" to phoneBatteryLabel,
     )
 
     val showsConnectionTest = selectedPreset.transport == StreamPreset.Transport.RTMP
@@ -398,9 +998,23 @@ private fun StatusTray(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Header: headline + status pill
+            // Sheet title
+            Text(
+                "Recording Status",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Live health and telemetry",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Status headline + pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -409,7 +1023,7 @@ private fun StatusTray(
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
                         "${streamingState.title} • $healthTitle",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
@@ -422,7 +1036,9 @@ private fun StatusTray(
                 StatusPill(title = statusTitle, color = statusColor)
             }
 
-            // Health row
+            Spacer(Modifier.height(8.dp))
+
+            // Health icon + detail
             Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -431,7 +1047,7 @@ private fun StatusTray(
                     healthIcon,
                     contentDescription = null,
                     tint = healthColor,
-                    modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                    modifier = Modifier.size(16.dp).padding(top = 1.dp),
                 )
                 Text(
                     healthDetail,
@@ -440,17 +1056,17 @@ private fun StatusTray(
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            Spacer(Modifier.height(16.dp))
 
-            // Metrics grid (2 columns)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Metrics grid — plain text, 2 columns, generous row spacing
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 metrics.chunked(2).forEach { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         row.forEach { (title, value) ->
-                            MetricTile(title = title, value = value, modifier = Modifier.weight(1f))
+                            MetricCell(title = title, value = value, modifier = Modifier.weight(1f))
                         }
                         if (row.size < 2) Spacer(Modifier.weight(1f))
                     }
@@ -459,6 +1075,7 @@ private fun StatusTray(
 
             // Focus message
             if (focusMessage != null) {
+                Spacer(Modifier.height(8.dp))
                 Text(
                     focusMessage,
                     style = MaterialTheme.typography.bodySmall,
@@ -466,31 +1083,34 @@ private fun StatusTray(
                 )
             }
 
-            // Diagnostics section (RTMP only)
+            // Diagnostics (RTMP only)
             if (showsConnectionTest) {
+                Spacer(Modifier.height(8.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Diagnostics",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Diagnostics",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Run a short RTMP check before going live. This verifies the destination and upload path, then stops automatically.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onRunTestStream(); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = canRunConnectionTest,
+                ) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp).padding(end = 6.dp),
                     )
-                    Text(
-                        "Run a short RTMP check before going live. Verifies the destination and upload path, then stops automatically.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            onRunTestStream()
-                            onDismiss()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canRunConnectionTest,
-                    ) {
-                        Icon(Icons.Outlined.BugReport, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                        Text("10s RTMP Test")
-                    }
+                    Text("10s RTMP Test")
                 }
             }
         }
@@ -498,25 +1118,8 @@ private fun StatusTray(
 }
 
 @Composable
-private fun StatusPill(title: String, color: Color) {
-    Text(
-        title,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = color,
-        modifier = Modifier
-            .background(color.copy(alpha = 0.14f), MaterialTheme.shapes.extraLarge)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    )
-}
-
-@Composable
-private fun MetricTile(title: String, value: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
+private fun MetricCell(title: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         Text(
             title,
             style = MaterialTheme.typography.labelSmall,
@@ -524,15 +1127,42 @@ private fun MetricTile(title: String, value: String, modifier: Modifier = Modifi
         )
         Text(
             value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }
 
-// ── Preview Tools Tray ───────────────────────────────────────────────────────
+// ── Shared pill ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun StatusPill(title: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.14f), MaterialTheme.shapes.extraLarge)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Text(
+            title,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+        )
+    }
+}
+
+// ── Preview Tools Tray ────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -543,7 +1173,6 @@ private fun PreviewToolsTray(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Local state for sliders so dragging stays smooth
     var localBrightness by remember { mutableFloatStateOf(settings.brightness.toFloat()) }
     var localContrast by remember { mutableFloatStateOf(settings.contrast.toFloat()) }
     var localSharpness by remember { mutableFloatStateOf(settings.sharpness.toFloat()) }
@@ -565,25 +1194,32 @@ private fun PreviewToolsTray(
                 .padding(bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Preview Tools",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (!settings.isIdentityTransform) {
-                    TextButton(onClick = { onUpdate(VideoTransformSettings.identity) }) {
-                        Text("Reset", color = StreamMogError)
+            // Sheet title
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Preview Tools",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (!settings.isIdentityTransform) {
+                        TextButton(onClick = { onUpdate(VideoTransformSettings.identity) }) {
+                            Text("Reset", color = StreamMogError)
+                        }
                     }
                 }
+                Text(
+                    "Framing and look changes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
-            // ── Zoom ──
+            // Zoom
             TrayRow("Zoom") {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     VideoTransformSettings.zoomOptions.forEachIndexed { i, zoom ->
@@ -598,7 +1234,7 @@ private fun PreviewToolsTray(
                 }
             }
 
-            // ── Rotate ──
+            // Rotate
             TrayRow("Rotate") {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     VideoTransformSettings.rotationOptions.forEachIndexed { i, deg ->
@@ -613,7 +1249,7 @@ private fun PreviewToolsTray(
                 }
             }
 
-            // ── Mirror / Grid / Horizon ──
+            // Mirror / Grid / Horizon
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = settings.isMirrored,
@@ -641,7 +1277,7 @@ private fun PreviewToolsTray(
                 )
             }
 
-            // ── Look (color enhancement) ──
+            // Look
             TrayRow("Look") {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     VideoTransformSettings.ColorEnhancementPreset.entries.forEachIndexed { i, preset ->
@@ -659,62 +1295,77 @@ private fun PreviewToolsTray(
                 }
             }
 
-            // ── Brightness ──
-            val brightnessRange = VideoTransformSettings.brightnessRange
+            // Brightness
             SliderRow(
                 label = "Bright",
                 value = localBrightness,
                 valueLabel = if (localBrightness > 0f) "+%.2f".format(localBrightness) else "%.2f".format(localBrightness),
-                valueRange = brightnessRange.start.toFloat()..brightnessRange.endInclusive.toFloat(),
+                valueRange = VideoTransformSettings.brightnessRange.start.toFloat()..VideoTransformSettings.brightnessRange.endInclusive.toFloat(),
                 onValueChange = { localBrightness = it },
                 onValueChangeFinished = { onUpdate(settings.copy(brightness = localBrightness.toDouble())) },
             )
 
-            // ── Contrast ──
-            val contrastRange = VideoTransformSettings.contrastRange
+            // Contrast
             SliderRow(
                 label = "Contrast",
                 value = localContrast,
                 valueLabel = "%.2f".format(localContrast),
-                valueRange = contrastRange.start.toFloat()..contrastRange.endInclusive.toFloat(),
+                valueRange = VideoTransformSettings.contrastRange.start.toFloat()..VideoTransformSettings.contrastRange.endInclusive.toFloat(),
                 onValueChange = { localContrast = it },
                 onValueChangeFinished = { onUpdate(settings.copy(contrast = localContrast.toDouble())) },
             )
 
-            // ── Sharpness ──
-            val sharpnessRange = VideoTransformSettings.sharpnessRange
+            // Sharpness
             SliderRow(
                 label = "Sharp",
                 value = localSharpness,
                 valueLabel = "%.1f".format(localSharpness),
-                valueRange = sharpnessRange.start.toFloat()..sharpnessRange.endInclusive.toFloat(),
+                valueRange = VideoTransformSettings.sharpnessRange.start.toFloat()..VideoTransformSettings.sharpnessRange.endInclusive.toFloat(),
                 onValueChange = { localSharpness = it },
                 onValueChangeFinished = { onUpdate(settings.copy(sharpness = localSharpness.toDouble())) },
             )
 
-            // ── Apply to stream ──
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Row(
+            // Apply to Stream — amber callout card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = StreamMogWarning.copy(alpha = 0.10f)),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Apply to Stream",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        "Include transforms in the broadcast",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(StreamMogWarning.copy(alpha = 0.20f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Tune,
+                            contentDescription = null,
+                            tint = StreamMogWarning,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Apply to Stream",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Preview-only right now. Turn this on to push framing and look changes live.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = settings.applyToStream,
+                        onCheckedChange = { onUpdate(settings.copy(applyToStream = it)) },
                     )
                 }
-                Switch(
-                    checked = settings.applyToStream,
-                    onCheckedChange = { onUpdate(settings.copy(applyToStream = it)) },
-                )
             }
         }
     }
@@ -766,420 +1417,5 @@ private fun SliderRow(
             valueRange = valueRange,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-// ── Main screen composables ──────────────────────────────────────────────────
-
-@Composable
-private fun StateBanner(streamingState: StreamingState, streamDuration: StreamSessionDuration) {
-    val isStreaming = streamingState is StreamingState.Streaming
-    val bgColor by animateColorAsState(
-        targetValue = when (streamingState) {
-            is StreamingState.Streaming -> StreamMogTeal.copy(alpha = 0.15f)
-            is StreamingState.Failed -> StreamMogError.copy(alpha = 0.15f)
-            is StreamingState.Recovering -> StreamMogWarning.copy(alpha = 0.12f)
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        },
-        animationSpec = tween(400),
-        label = "bannerBg",
-    )
-    val textColor by animateColorAsState(
-        targetValue = when (streamingState) {
-            is StreamingState.Streaming -> StreamMogTeal
-            is StreamingState.Failed -> StreamMogError
-            is StreamingState.Recovering -> StreamMogWarning
-            else -> MaterialTheme.colorScheme.onSurface
-        },
-        animationSpec = tween(400),
-        label = "bannerText",
-    )
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                when (streamingState) {
-                    is StreamingState.ConnectingGlasses,
-                    is StreamingState.StartingStream -> CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = textColor,
-                    )
-                    is StreamingState.Recovering -> CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = StreamMogWarning,
-                    )
-                    is StreamingState.Streaming -> Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(StreamMogTeal),
-                    )
-                    else -> {}
-                }
-                Text(
-                    streamingState.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = textColor,
-                )
-            }
-            if (isStreaming) {
-                Text(
-                    "● LIVE  ${streamDuration.displayText}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = StreamMogTeal,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-        if (streamingState is StreamingState.StartingStream || streamingState is StreamingState.ConnectingGlasses) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PreviewCard(
-    deviceStatus: DeviceStatus,
-    previewSnapshot: app.streammog.android.domain.model.PreviewSnapshot?,
-    streamingState: StreamingState,
-) {
-    val connectionIcon = when (deviceStatus.connectionState) {
-        ConnectionState.CONNECTED -> Icons.Outlined.CastConnected
-        ConnectionState.CONNECTING -> Icons.AutoMirrored.Outlined.BluetoothSearching
-        ConnectionState.DISCONNECTED -> Icons.Outlined.LinkOff
-        else -> Icons.Outlined.PhoneAndroid
-    }
-    val connectionColor = when (deviceStatus.connectionState) {
-        ConnectionState.CONNECTED -> StreamMogTeal
-        ConnectionState.CONNECTING -> StreamMogWarning
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(connectionIcon, contentDescription = null, tint = connectionColor, modifier = Modifier.size(18.dp))
-                    Text(
-                        deviceStatus.deviceName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                if (deviceStatus.batteryLevel != null) {
-                    Text(
-                        "⚡ ${deviceStatus.batteryLevel}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (deviceStatus.batteryLevel <= 20) StreamMogError else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            DeviceStatusRow(status = deviceStatus)
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (previewSnapshot != null) 100.dp else 56.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (previewSnapshot != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Icon(
-                            Icons.Outlined.Cast,
-                            contentDescription = null,
-                            tint = StreamMogTeal,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Text(
-                            "Frame ${previewSnapshot.frameIndex}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                        Text(
-                            previewSnapshot.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    Text(
-                        "Camera preview unavailable",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeviceStatusRow(status: DeviceStatus) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        StatusChip(
-            label = "Connection",
-            value = status.connectionState.displayName,
-            valueColor = when (status.connectionState) {
-                ConnectionState.CONNECTED -> StreamMogTeal
-                ConnectionState.CONNECTING -> StreamMogWarning
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-        StatusChip(
-            label = "Session",
-            value = status.sessionState.displayName,
-            valueColor = when (status.sessionState) {
-                SessionState.RUNNING -> StreamMogTeal
-                SessionState.FAILED -> StreamMogError
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-    }
-}
-
-@Composable
-private fun StatusChip(label: String, value: String, valueColor: Color) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = valueColor)
-    }
-}
-
-@Composable
-private fun StreamHealthCard(health: StreamHealth, preset: StreamPreset) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                "Stream Health",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                HealthMetric(label = "Upload", value = "${health.uploadBitrateKbps} kbps")
-                HealthMetric(label = "FPS", value = "%.1f".format(health.fps))
-                HealthMetric(label = "Reconnects", value = "${health.reconnectCount}")
-                HealthMetric(label = "Dropped", value = "${health.droppedFrames}")
-            }
-            if (preset.targetBitrateKbps > 0) {
-                val fraction = (health.uploadBitrateKbps.toFloat() / preset.targetBitrateKbps).coerceIn(0f, 1f)
-                val barColor = when {
-                    fraction >= 0.8f -> StreamMogTeal
-                    fraction >= 0.5f -> StreamMogWarning
-                    else -> StreamMogError
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Bitrate", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "${(fraction * 100).toInt()}% of ${preset.targetBitrateKbps} kbps",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = barColor,
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = barColor,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HealthMetric(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun ActionButtonsCard(
-    streamingState: StreamingState,
-    deviceStatus: DeviceStatus,
-    preset: StreamPreset,
-    onConnect: () -> Unit,
-    onStartSession: () -> Unit,
-    onStartStreaming: () -> Unit,
-    onStopStreaming: () -> Unit,
-    onStopAll: () -> Unit,
-    onResetSession: () -> Unit,
-    onRunTestStream: () -> Unit,
-) {
-    val isConnected = deviceStatus.connectionState == ConnectionState.CONNECTED
-    val isStreaming = streamingState is StreamingState.Streaming
-    val isBusy = streamingState is StreamingState.StartingStream ||
-        streamingState is StreamingState.ConnectingGlasses
-    val isActive = isStreaming || streamingState is StreamingState.Recovering || isBusy
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                "Controls",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            // Primary action
-            when {
-                streamingState is StreamingState.Streaming || streamingState is StreamingState.Recovering -> {
-                    Button(
-                        onClick = onStopStreaming,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = StreamMogError),
-                    ) {
-                        Icon(Icons.Outlined.StopCircle, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                        Text("Stop Stream", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                streamingState is StreamingState.Idle || streamingState is StreamingState.Failed -> {
-                    Button(
-                        onClick = onConnect,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isBusy,
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.BluetoothSearching, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                        Text("Connect Glasses")
-                    }
-                }
-                isConnected -> {
-                    Button(
-                        onClick = onStartStreaming,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isBusy,
-                    ) {
-                        Icon(Icons.Outlined.Cast, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                        Text(
-                            when (preset.transport) {
-                                StreamPreset.Transport.RTMP -> "Go Live"
-                                StreamPreset.Transport.LOCAL_RECORDING -> "Start Recording"
-                                StreamPreset.Transport.SRT -> "Go Live (SRT)"
-                            },
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-
-            // Secondary row: Start Session + Test Stream
-            if (isConnected && !isStreaming && !isBusy) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(
-                        onClick = onStartSession,
-                        modifier = Modifier.weight(1f),
-                        enabled = deviceStatus.sessionState != SessionState.RUNNING,
-                    ) {
-                        Text("Start Session", style = MaterialTheme.typography.labelMedium)
-                    }
-                    if (preset.transport == StreamPreset.Transport.RTMP) {
-                        FilledTonalButton(
-                            onClick = onRunTestStream,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Outlined.BugReport, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                            Text("Test", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-            }
-
-            // Tertiary row: Reset Session + Stop All
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onResetSession,
-                    modifier = Modifier.weight(1f),
-                    enabled = isConnected || isActive,
-                ) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("Reset Session", style = MaterialTheme.typography.labelMedium)
-                }
-                if (isActive) {
-                    OutlinedButton(
-                        onClick = onStopAll,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StreamMogError),
-                    ) {
-                        Text("Stop All", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WarningBanner(message: String) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = StreamMogWarning.copy(alpha = 0.12f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(Icons.Outlined.Warning, contentDescription = null, tint = StreamMogWarning, modifier = Modifier.size(18.dp))
-            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-        }
-    }
-}
-
-@Composable
-private fun ErrorBanner(message: String) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = StreamMogError.copy(alpha = 0.12f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = StreamMogError, modifier = Modifier.size(18.dp))
-            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Start)
-        }
     }
 }
