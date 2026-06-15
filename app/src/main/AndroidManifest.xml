@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Network (RTMP/SRT streaming) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Bluetooth (Meta glasses connection) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Keep screen / CPU on while streaming -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Microphone for audio capture -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Camera for MockDeviceKit preview -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Foreground service for background streaming -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Local network discovery for Meta glasses -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <application
+        android:name=".StreamMogApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.StreamMog">
+
+        <!-- Meta MWDAT SDK configuration -->
+        <!-- Key names confirmed from Meta Android SDK docs (singular "wearable", "mwdat" prefix) -->
+        <meta-data
+            android:name="com.meta.wearable.mwdat.APPLICATION_ID"
+            android:value="@string/meta_app_id" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.CLIENT_TOKEN"
+            android:value="@string/meta_client_token" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.APP_LINK_URL_SCHEME"
+            android:value="@string/meta_app_link_url_scheme" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
+            android:value="true" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Meta DAT deep-link callback (replaces iOS CFBundleURLSchemes = streamglassesapp) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="streamglassesapp" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

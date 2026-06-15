@@ -1,0 +1,4 @@
+-keep class app.streammog.android.** { *; }
+-keep class com.meta.wearables.** { *; }
+-keepattributes *Annotation*
+-keepattributes Signature
