@@ -6,12 +6,10 @@ import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.integrations.meta.MetaDATGlassesSessionClient
 import app.streammog.android.integrations.meta.MockGlassesSessionClient
-import app.streammog.android.integrations.streaming.MockStreamTransport
+import app.streammog.android.integrations.streaming.RoutingStreamTransport
 import app.streammog.android.shared.diagnostics.DiagnosticsStore
 import app.streammog.android.shared.persistence.SessionHistoryStore
 import app.streammog.android.shared.persistence.StreamPresetStore
-import java.lang.ref.WeakReference
-
 // Single holder for all application-scoped singletons (mirrors iOS AppEnvironment).
 // Held on the Application class so it outlives any individual Activity.
 class AppEnvironment private constructor(
@@ -39,8 +37,7 @@ class AppEnvironment private constructor(
                 )
             }
 
-            // Phase 2 replaces MockStreamTransport with RtmpStreamTransport / RoutingStreamTransport
-            val streamTransport = MockStreamTransport()
+            val streamTransport = RoutingStreamTransport(diagnosticsStore, context)
 
             val coordinator = StreamingCoordinator(
                 glassesClient = glassesClient,

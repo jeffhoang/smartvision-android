@@ -7,6 +7,7 @@ import app.streammog.android.domain.model.ConnectionState
 import app.streammog.android.domain.model.DeviceStatus
 import app.streammog.android.domain.model.PreviewSnapshot
 import app.streammog.android.domain.model.SessionState
+import app.streammog.android.domain.model.VideoFrameData
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.shared.diagnostics.DiagnosticsEntry
 import app.streammog.android.shared.diagnostics.DiagnosticsLogging
@@ -37,7 +38,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.nio.ByteBuffer
 
 class MetaDATGlassesSessionClient(
     private val diagnosticsStore: DiagnosticsLogging,
@@ -47,7 +47,7 @@ class MetaDATGlassesSessionClient(
     override var statusDidChange: ((DeviceStatus) -> Unit)? = null
     override var previewDidUpdate: ((PreviewSnapshot) -> Unit)? = null
     override var fpsDidUpdate: ((Double) -> Unit)? = null
-    override var videoBufferDidOutput: (suspend (ByteBuffer) -> Unit)? = null
+    override var videoBufferDidOutput: (suspend (VideoFrameData) -> Unit)? = null
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
@@ -421,7 +421,16 @@ class MetaDATGlassesSessionClient(
             }
             launch {
                 stream.videoStream.collect { frame ->
-                    handleVideoFrame(frame.buffer)
+                    handleVideoFrame(
+                        VideoFrameData(
+                            buffer = frame.buffer,
+                            width = frame.width,
+                            height = frame.height,
+                            presentationTimeUs = frame.presentationTimeUs,
+                            isCompressed = frame.isCompressed,
+                            isCodecConfig = frame.isCodecConfig,
+                        )
+                    )
                 }
             }
         }
@@ -439,7 +448,7 @@ class MetaDATGlassesSessionClient(
         statusDidChange?.invoke(lastReportedStatus)
     }
 
-    private suspend fun handleVideoFrame(buffer: ByteBuffer) {
+    private suspend fun handleVideoFrame(frameData: VideoFrameData) {
         totalFrameCounter++
         fpsWindowFrameCounter++
 
@@ -462,7 +471,7 @@ class MetaDATGlassesSessionClient(
             lastFpsWindowStartMs = nowMs
         }
 
-        videoBufferDidOutput?.invoke(buffer)
+        videoBufferDidOutput?.invoke(frameData)
     }
 
     // endregion

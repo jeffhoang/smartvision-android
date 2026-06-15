@@ -5,6 +5,7 @@ import app.streammog.android.domain.model.ConnectionState
 import app.streammog.android.domain.model.DeviceStatus
 import app.streammog.android.domain.model.PreviewSnapshot
 import app.streammog.android.domain.model.SessionState
+import app.streammog.android.domain.model.VideoFrameData
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.shared.diagnostics.DiagnosticsEntry
 import app.streammog.android.shared.diagnostics.DiagnosticsLogging
@@ -15,7 +16,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.nio.ByteBuffer
 
 class MockGlassesSessionClient(
     private val diagnosticsStore: DiagnosticsLogging,
@@ -23,7 +23,7 @@ class MockGlassesSessionClient(
     override var statusDidChange: ((DeviceStatus) -> Unit)? = null
     override var previewDidUpdate: ((PreviewSnapshot) -> Unit)? = null
     override var fpsDidUpdate: ((Double) -> Unit)? = null
-    override var videoBufferDidOutput: (suspend (ByteBuffer) -> Unit)? = null
+    override var videoBufferDidOutput: (suspend (VideoFrameData) -> Unit)? = null
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var frameJob: Job? = null

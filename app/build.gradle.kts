@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "app.streammog.android"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.streammog.android"
         minSdk = 31
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -67,5 +67,6 @@ dependencies {
     implementation(libs.mwdat.core)
     implementation(libs.mwdat.camera)
     debugImplementation(libs.mwdat.mockdevice)
+    implementation(libs.rootencoder)
     debugImplementation(libs.androidx.ui.tooling)
 }
