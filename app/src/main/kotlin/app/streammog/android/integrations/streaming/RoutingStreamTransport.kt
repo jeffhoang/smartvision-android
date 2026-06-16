@@ -58,8 +58,11 @@ class RoutingStreamTransport(
             }
 
             StreamPreset.Transport.SRT -> {
-                diagnosticsStore.log("SRT transport not yet implemented", DiagnosticsEntry.Category.stream)
-                eventDidChange?.invoke(StreamingTransportEvent.Disconnected("SRT transport is not yet implemented."))
+                val srt = SrtStreamTransport(diagnosticsStore, context)
+                srt.healthDidChange = { healthDidChange?.invoke(it) }
+                srt.eventDidChange = { eventDidChange?.invoke(it) }
+                primaryTransport = srt
+                srt.startStreaming(preset)
             }
         }
     }

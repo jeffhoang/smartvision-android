@@ -164,6 +164,7 @@ private fun StreamTab(
     var appPath by rememberSaveable(preset.id) { mutableStateOf(preset.appPath) }
     var streamKey by rememberSaveable(preset.id) { mutableStateOf(preset.streamKey) }
     var streamKeyVisible by remember { mutableStateOf(false) }
+    var showQrScanner by remember { mutableStateOf(false) }
 
     LaunchedEffect(presetName) { delay(600); if (presetName != preset.name) onUpdate(preset.copy(name = presetName)) }
     LaunchedEffect(host) { delay(600); if (host != preset.host) onUpdate(preset.copy(host = host)) }
@@ -286,7 +287,7 @@ private fun StreamTab(
                         enabled = preset.isStreamKeyLocked,
                     )
                     CardDivider()
-                    CardActionRow(Icons.Outlined.QrCode, "Scan RTMP QR") { /* TODO: QR scanner */ }
+                    CardActionRow(Icons.Outlined.QrCode, "Scan RTMP QR") { showQrScanner = true }
                     CardDivider()
                     // Publish URL + service hint
                     Column(
@@ -397,6 +398,19 @@ private fun StreamTab(
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (showQrScanner) {
+        QrScannerSheet(
+            onScanned = { result ->
+                host = result.host
+                appPath = result.appPath
+                streamKey = result.streamKey
+                onUpdate(preset.copy(host = result.host, appPath = result.appPath, streamKey = result.streamKey))
+                showQrScanner = false
+            },
+            onDismiss = { showQrScanner = false },
+        )
     }
 }
 

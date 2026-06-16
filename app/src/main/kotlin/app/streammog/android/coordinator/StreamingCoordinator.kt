@@ -161,6 +161,12 @@ class StreamingCoordinator(
         viewModelScope.launch {
             streamTransport.updateVideoTransform(_previewSettings.value)
         }
+
+        viewModelScope.launch {
+            _streamingState.collect { state ->
+                manageForegroundService(state)
+            }
+        }
     }
 
     override fun onCleared() {
@@ -864,6 +870,17 @@ $actionLine"""
     private fun persistDestinations(destinations: List<StreamDestination>) {
         _savedDestinations.value = destinations
         presetStore.saveDestinations(destinations, maxCount = entitlements.maxSavedDestinations)
+    }
+
+    private fun manageForegroundService(state: StreamingState) {
+        val ctx = appContext
+        when (state) {
+            is StreamingState.StartingStream -> app.streammog.android.service.StreamingForegroundService.start(ctx, "Starting stream…")
+            is StreamingState.Streaming -> app.streammog.android.service.StreamingForegroundService.start(ctx, "Live — ${AppBrand.DISPLAY_NAME}")
+            is StreamingState.Recovering -> app.streammog.android.service.StreamingForegroundService.start(ctx, "Reconnecting…")
+            is StreamingState.Idle, is StreamingState.Failed -> app.streammog.android.service.StreamingForegroundService.stop(ctx)
+            else -> Unit
+        }
     }
 
     private fun updateKeepScreenOn() {
