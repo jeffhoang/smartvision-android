@@ -116,6 +116,7 @@ fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitleme
             }
         },
     ) { padding ->
+        Box(modifier = Modifier.padding(padding).padding(top = 8.dp)) {
         when (selectedTab) {
             0 -> StreamTab(
                 preset = preset,
@@ -138,6 +139,7 @@ fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitleme
                 onResetPreset = { coordinator.resetPreset() },
             )
             3 -> InfoTab()
+        }
         }
     }
 }
