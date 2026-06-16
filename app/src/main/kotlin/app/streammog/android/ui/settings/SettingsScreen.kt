@@ -7,6 +7,7 @@ import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -99,6 +100,7 @@ fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitleme
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             Column {
                 PrimaryTabRow(
@@ -116,30 +118,30 @@ fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitleme
             }
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).padding(top = 8.dp)) {
-        when (selectedTab) {
-            0 -> StreamTab(
-                preset = preset,
-                savedDestinations = savedDestinations,
-                entitlements = entitlements,
-                onUpdate = coordinator::updatePreset,
-                onSaveDestination = { coordinator.saveCurrentDestination() },
-                onApplyDestination = coordinator::applyDestination,
-                onDeleteDestination = { coordinator.deleteDestinations(setOf(it)) },
-            )
-            1 -> QualityTab(preset = preset, entitlements = entitlements, onUpdate = coordinator::updatePreset)
-            2 -> AppTab(
-                preset = preset,
-                creatorDefaultSummary = creatorDefaultSummary,
-                entitlements = entitlements,
-                onUpdate = coordinator::updatePreset,
-                onSaveCreatorDefaults = { coordinator.saveCreatorDefaults() },
-                onApplyCreatorDefaults = { coordinator.applyCreatorDefaults() },
-                onClearCreatorDefaults = { coordinator.clearCreatorDefaults() },
-                onResetPreset = { coordinator.resetPreset() },
-            )
-            3 -> InfoTab()
-        }
+        Box(modifier = Modifier.padding(padding)) {
+            when (selectedTab) {
+                0 -> StreamTab(
+                    preset = preset,
+                    savedDestinations = savedDestinations,
+                    entitlements = entitlements,
+                    onUpdate = coordinator::updatePreset,
+                    onSaveDestination = { coordinator.saveCurrentDestination() },
+                    onApplyDestination = coordinator::applyDestination,
+                    onDeleteDestination = { coordinator.deleteDestinations(setOf(it)) },
+                )
+                1 -> QualityTab(preset = preset, entitlements = entitlements, onUpdate = coordinator::updatePreset)
+                2 -> AppTab(
+                    preset = preset,
+                    creatorDefaultSummary = creatorDefaultSummary,
+                    entitlements = entitlements,
+                    onUpdate = coordinator::updatePreset,
+                    onSaveCreatorDefaults = { coordinator.saveCreatorDefaults() },
+                    onApplyCreatorDefaults = { coordinator.applyCreatorDefaults() },
+                    onClearCreatorDefaults = { coordinator.clearCreatorDefaults() },
+                    onResetPreset = { coordinator.resetPreset() },
+                )
+                3 -> InfoTab()
+            }
         }
     }
 }
@@ -916,7 +918,7 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        modifier = Modifier.padding(start = 14.dp, bottom = 4.dp),
     )
 }
 
