@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import app.streammog.android.app.AppBrand
 import app.streammog.android.app.AppRuntimeMode
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.shared.diagnostics.DiagnosticsEntry
@@ -232,5 +233,5 @@ private fun copyAllToClipboard(context: Context, entries: List<DiagnosticsEntry>
         "${timeFormat.format(Date(entry.timestampMs))} [${entry.category}] ${entry.message}"
     }
     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    cm.setPrimaryClip(ClipData.newPlainText("StreamMog Diagnostics", text))
+    cm.setPrimaryClip(ClipData.newPlainText(AppBrand.DIAGNOSTICS_TITLE, text))
 }

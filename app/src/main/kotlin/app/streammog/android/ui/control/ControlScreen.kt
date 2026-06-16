@@ -80,6 +80,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.streammog.android.app.AppBrand
 import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.model.ConnectionState
 import app.streammog.android.domain.model.DeviceStatus
@@ -902,7 +903,7 @@ private fun StatusTray(
     }
 
     val healthDetail = when (healthTitle) {
-        "Reconnect" -> "RTMP dropped; StreamMog is retrying automatically."
+        "Reconnect" -> "RTMP dropped; ${AppBrand.DISPLAY_NAME} is retrying automatically."
         "No Frames" -> "Camera session is active, but no video frames are reaching the stream."
         "Audio Missing" -> "Video is flowing, but no microphone samples have reached the publisher."
         "Silent Mic" -> "Audio samples are present, but the microphone level is near silence."
