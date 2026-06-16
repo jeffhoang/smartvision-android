@@ -157,6 +157,13 @@ data class StreamPreset(
         return Result.success("$base/${parts.joinToString("/")}")
     }
 
+    fun makeSrtUrl(): Result<String> {
+        val url = host.trim()
+        if (url.isEmpty()) return Result.failure(Exception("SRT URL is required (e.g. srt://host:9000)."))
+        if (!url.startsWith("srt://")) return Result.failure(Exception("SRT URL must start with srt://"))
+        return Result.success(url)
+    }
+
     fun readinessItems(): List<ReadinessItem> = buildList {
         when (transport) {
             Transport.RTMP -> {
@@ -180,12 +187,15 @@ data class StreamPreset(
                 detail = "Saves native DAT frames to this device with local encoding. Current SDK feed is $META_DAT_SOURCE_RESOLUTION.",
                 severity = ReadinessItem.Severity.READY,
             ))
-            Transport.SRT -> add(ReadinessItem(
-                id = "transport",
-                title = "Stream transport",
-                detail = "SRT is not implemented yet.",
-                severity = ReadinessItem.Severity.BLOCKING,
-            ))
+            Transport.SRT -> {
+                val urlResult = makeSrtUrl()
+                add(ReadinessItem(
+                    id = "srt-url",
+                    title = "SRT destination",
+                    detail = urlResult.getOrNull() ?: (urlResult.exceptionOrNull()?.message ?: "Invalid SRT URL"),
+                    severity = if (urlResult.isFailure) ReadinessItem.Severity.BLOCKING else ReadinessItem.Severity.READY,
+                ))
+            }
         }
 
         add(ReadinessItem(
@@ -283,7 +293,23 @@ data class StreamPreset(
                         QualityPreset.HIGH -> 14_000; QualityPreset.MAX -> 18_000; QualityPreset.ARCHIVE -> 30_000
                     }
                 }
-                Transport.SRT -> 0
+                Transport.SRT -> if (pixels >= 3_000_000) {
+                    when (qualityPreset) {
+                        QualityPreset.LOW -> if (highFps) 5000 else 4000
+                        QualityPreset.STANDARD -> if (highFps) 7000 else 6000
+                        QualityPreset.HIGH -> if (highFps) 9000 else 8000
+                        QualityPreset.MAX -> if (highFps) 11_000 else 10_000
+                        QualityPreset.ARCHIVE -> 12_000
+                    }
+                } else {
+                    when (qualityPreset) {
+                        QualityPreset.LOW -> if (highFps) 4000 else 3000
+                        QualityPreset.STANDARD -> if (highFps) 7000 else 6000
+                        QualityPreset.HIGH -> if (highFps) 9000 else 8000
+                        QualityPreset.MAX -> if (highFps) 11_000 else 10_000
+                        QualityPreset.ARCHIVE -> 12_000
+                    }
+                }
             }
         }
 

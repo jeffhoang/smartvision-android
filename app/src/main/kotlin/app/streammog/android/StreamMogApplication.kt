@@ -3,9 +3,15 @@ package app.streammog.android
 import android.app.Activity
 import android.app.Application
 import app.streammog.android.app.AppEnvironment
+import app.streammog.android.service.StreamingForegroundService
 import java.lang.ref.WeakReference
 
 class StreamMogApplication : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        StreamingForegroundService.createChannel(this)
+    }
     private var activityRef: WeakReference<Activity> = WeakReference(null)
 
     val currentActivity: Activity? get() = activityRef.get()
