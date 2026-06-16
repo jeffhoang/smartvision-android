@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.streammog.android.app.AppBrand
-import app.streammog.android.app.AppEntitlements
 import app.streammog.android.app.AppRuntimeMode
 import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.protocol.GlassesSessionClient
@@ -75,11 +74,13 @@ fun RootScreen(
     diagnosticsStore: DiagnosticsStore,
     glassesClient: GlassesSessionClient,
     runtimeMode: AppRuntimeMode,
-    entitlements: AppEntitlements,
+    onLaunchUpgrade: () -> Unit,
+    onManageSubscription: () -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
 ) {
     val keepScreenOn by coordinator.keepScreenOn.collectAsState()
     LaunchedEffect(keepScreenOn) { onKeepScreenOn(keepScreenOn) }
+    val entitlements by coordinator.entitlementsFlow.collectAsState()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = AppTab.entries
@@ -120,7 +121,12 @@ fun RootScreen(
             Box(modifier = Modifier.padding(padding)) {
                 when (tabs[selectedTab]) {
                     AppTab.CONTROL -> ControlScreen(coordinator = coordinator)
-                    AppTab.SETTINGS -> SettingsScreen(coordinator = coordinator, entitlements = entitlements)
+                    AppTab.SETTINGS -> SettingsScreen(
+                        coordinator = coordinator,
+                        entitlements = entitlements,
+                        onLaunchUpgrade = onLaunchUpgrade,
+                        onManageSubscription = onManageSubscription,
+                    )
                     AppTab.HISTORY -> SessionHistoryScreen(coordinator = coordinator)
                     AppTab.LOGS -> DiagnosticsScreen(
                         diagnosticsStore = diagnosticsStore,

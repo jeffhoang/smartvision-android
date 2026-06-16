@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
                     diagnosticsStore = env.diagnosticsStore,
                     glassesClient = env.glassesClient,
                     runtimeMode = env.runtimeMode,
-                    entitlements = env.entitlements,
+                    onLaunchUpgrade = { env.billingManager.launchUpgradeFlow() },
+                    onManageSubscription = { env.billingManager.openManageSubscriptions() },
                     onKeepScreenOn = { keepOn ->
                         if (keepOn) {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

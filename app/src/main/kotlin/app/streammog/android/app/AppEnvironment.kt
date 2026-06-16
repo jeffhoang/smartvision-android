@@ -2,6 +2,7 @@ package app.streammog.android.app
 
 import android.app.Activity
 import android.content.Context
+import app.streammog.android.billing.BillingManager
 import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.integrations.meta.MetaDATGlassesSessionClient
@@ -18,6 +19,7 @@ class AppEnvironment private constructor(
     val glassesClient: GlassesSessionClient,
     val runtimeMode: AppRuntimeMode,
     val entitlements: AppEntitlements,
+    val billingManager: BillingManager,
 ) {
     companion object {
         fun bootstrap(context: Context, activityRef: () -> Activity?): AppEnvironment {
@@ -49,12 +51,21 @@ class AppEnvironment private constructor(
                 appContext = context.applicationContext,
             )
 
+            val billingManager = BillingManager(
+                context = context.applicationContext,
+                activityProvider = activityRef,
+                diagnosticsStore = diagnosticsStore,
+                onEntitlementsChanged = coordinator::updateEntitlements,
+            )
+            billingManager.connect()
+
             return AppEnvironment(
                 coordinator = coordinator,
                 diagnosticsStore = diagnosticsStore,
                 glassesClient = glassesClient,
                 runtimeMode = runtimeMode,
                 entitlements = entitlements,
+                billingManager = billingManager,
             )
         }
     }

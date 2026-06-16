@@ -50,6 +50,9 @@ class StreamingCoordinator(
     private val appContext: Context,
 ) : ViewModel() {
 
+    private val _entitlementsFlow = MutableStateFlow(entitlements)
+    val entitlementsFlow: StateFlow<AppEntitlements> = _entitlementsFlow.asStateFlow()
+
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
 
@@ -534,6 +537,7 @@ class StreamingCoordinator(
 
     fun updateEntitlements(updated: AppEntitlements) {
         entitlements = updated
+        _entitlementsFlow.value = updated
         _savedDestinations.value = presetStore.loadSavedDestinations(maxCount = updated.maxSavedDestinations)
         _sessionHistory.value = sessionHistoryStore.loadEntries(maxCount = updated.maxSessionHistoryEntries)
 

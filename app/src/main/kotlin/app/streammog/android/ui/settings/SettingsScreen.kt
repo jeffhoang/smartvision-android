@@ -90,7 +90,12 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitlements) {
+fun SettingsScreen(
+    coordinator: StreamingCoordinator,
+    entitlements: AppEntitlements,
+    onLaunchUpgrade: () -> Unit,
+    onManageSubscription: () -> Unit,
+) {
     val preset by coordinator.selectedPreset.collectAsState()
     val savedDestinations by coordinator.savedDestinations.collectAsState()
     val creatorDefaultSummary by coordinator.creatorDefaultSummary.collectAsState()
@@ -140,7 +145,11 @@ fun SettingsScreen(coordinator: StreamingCoordinator, entitlements: AppEntitleme
                     onClearCreatorDefaults = { coordinator.clearCreatorDefaults() },
                     onResetPreset = { coordinator.resetPreset() },
                 )
-                3 -> InfoTab()
+                3 -> InfoTab(
+                    entitlements = entitlements,
+                    onLaunchUpgrade = onLaunchUpgrade,
+                    onManageSubscription = onManageSubscription,
+                )
             }
         }
     }
@@ -758,7 +767,11 @@ private fun AppTab(
 // ── Info Tab ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun InfoTab() {
+private fun InfoTab(
+    entitlements: AppEntitlements,
+    onLaunchUpgrade: () -> Unit,
+    onManageSubscription: () -> Unit,
+) {
     val context = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
@@ -790,6 +803,45 @@ private fun InfoTab() {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        SettingsSection(
+            title = "Membership",
+            trailing = {
+                Text(
+                    entitlements.tier.displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (entitlements.tier == AppEntitlements.Tier.CREATOR)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        ) {
+            if (entitlements.tier == AppEntitlements.Tier.FREE) {
+                Text(
+                    "Upgrade to Creator for unlimited stream duration, multiple saved destinations, " +
+                        "QR import, diagnostics export, and creator defaults.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                androidx.compose.material3.TextButton(
+                    onClick = onLaunchUpgrade,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Upgrade to Creator", color = MaterialTheme.colorScheme.primary)
+                }
+            } else {
+                InfoRow("Status", "Active")
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                androidx.compose.material3.TextButton(
+                    onClick = onManageSubscription,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Manage Subscription", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
         SettingsSection("About") {
             Text(
                 "${AppBrand.DISPLAY_NAME} helps creators preview their smart glasses camera, " +
