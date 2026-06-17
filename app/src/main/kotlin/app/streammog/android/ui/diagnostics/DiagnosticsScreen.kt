@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,7 +32,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.streammog.android.app.AppBrand
+import app.streammog.android.app.AppEntitlements
 import app.streammog.android.app.AppRuntimeMode
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.shared.diagnostics.DiagnosticsEntry
@@ -54,11 +59,14 @@ fun DiagnosticsScreen(
     diagnosticsStore: DiagnosticsStore,
     glassesClient: GlassesSessionClient,
     runtimeMode: AppRuntimeMode,
+    entitlements: AppEntitlements,
+    onLaunchUpgrade: () -> Unit,
 ) {
     val entries by diagnosticsStore.entries.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    var showUpgradeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,13 +85,23 @@ fun DiagnosticsScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { copyAllToClipboard(context, entries) },
+                        onClick = {
+                            if (!entitlements.canExportDiagnostics) {
+                                showUpgradeDialog = true
+                            } else {
+                                copyAllToClipboard(context, entries)
+                            }
+                        },
                         enabled = entries.isNotEmpty(),
                     ) {
                         Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy all")
                     }
                     IconButton(
                         onClick = {
+                            if (!entitlements.canExportDiagnostics) {
+                                showUpgradeDialog = true
+                                return@IconButton
+                            }
                             val file = diagnosticsStore.exportDiagnosticsBundle()
                             if (file != null) {
                                 val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -171,6 +189,25 @@ fun DiagnosticsScreen(
 
             item { /* bottom padding */ }
         }
+    }
+
+    if (showUpgradeDialog) {
+        AlertDialog(
+            onDismissRequest = { showUpgradeDialog = false },
+            title = { Text("Creator Feature") },
+            text = {
+                Text(
+                    "Diagnostics export requires a Creator subscription. " +
+                        "Upgrade to unlock export, unlimited streaming, multiple saved destinations, and more.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showUpgradeDialog = false; onLaunchUpgrade() }) { Text("Upgrade") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpgradeDialog = false }) { Text("Not Now") }
+            },
+        )
     }
 }
 

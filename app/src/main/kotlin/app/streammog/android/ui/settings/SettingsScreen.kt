@@ -133,6 +133,7 @@ fun SettingsScreen(
                     onSaveDestination = { coordinator.saveCurrentDestination() },
                     onApplyDestination = coordinator::applyDestination,
                     onDeleteDestination = { coordinator.deleteDestinations(setOf(it)) },
+                    onLaunchUpgrade = onLaunchUpgrade,
                 )
                 1 -> QualityTab(preset = preset, entitlements = entitlements, onUpdate = coordinator::updatePreset)
                 2 -> AppTab(
@@ -167,6 +168,7 @@ private fun StreamTab(
     onSaveDestination: () -> Unit,
     onApplyDestination: (StreamDestination) -> Unit,
     onDeleteDestination: (Int) -> Unit,
+    onLaunchUpgrade: () -> Unit,
 ) {
     var presetName by rememberSaveable(preset.id) { mutableStateOf(preset.name) }
     var host by rememberSaveable(preset.id) { mutableStateOf(preset.host) }
@@ -174,6 +176,8 @@ private fun StreamTab(
     var streamKey by rememberSaveable(preset.id) { mutableStateOf(preset.streamKey) }
     var streamKeyVisible by remember { mutableStateOf(false) }
     var showQrScanner by remember { mutableStateOf(false) }
+    var showUpgradeDialog by remember { mutableStateOf(false) }
+    var upgradeFeature by remember { mutableStateOf("") }
 
     LaunchedEffect(presetName) { delay(600); if (presetName != preset.name) onUpdate(preset.copy(name = presetName)) }
     LaunchedEffect(host) { delay(600); if (host != preset.host) onUpdate(preset.copy(host = host)) }
@@ -202,6 +206,11 @@ private fun StreamTab(
                     selected = preset.transport.displayName,
                     options = StreamPreset.Transport.values().map { it to it.displayName },
                     onSelect = { t ->
+                        if (t == StreamPreset.Transport.SRT && !entitlements.canUsePremiumProtocols) {
+                            upgradeFeature = "SRT transport"
+                            showUpgradeDialog = true
+                            return@CardPickerRow
+                        }
                         val updatedName = when (t) {
                             StreamPreset.Transport.LOCAL_RECORDING -> "Phone Local Recording"
                             StreamPreset.Transport.SRT -> "SRT Stream"
@@ -220,6 +229,11 @@ private fun StreamTab(
                         selected = preset.streamingService?.displayName ?: "Custom",
                         options = StreamPreset.StreamingService.selectableCases.map { it to it.displayName },
                         onSelect = { service ->
+                            if (!entitlements.allows(service)) {
+                                upgradeFeature = "${service.displayName} streaming"
+                                showUpgradeDialog = true
+                                return@CardPickerRow
+                            }
                             val newName = if (service != StreamPreset.StreamingService.CUSTOM) service.defaultPresetName else preset.name
                             onUpdate(
                                 preset.copy(
@@ -296,7 +310,10 @@ private fun StreamTab(
                         enabled = preset.isStreamKeyLocked,
                     )
                     CardDivider()
-                    CardActionRow(Icons.Outlined.QrCode, "Scan RTMP QR") { showQrScanner = true }
+                    CardActionRow(Icons.Outlined.QrCode, "Scan RTMP QR") {
+                        if (entitlements.canImportFromQR) showQrScanner = true
+                        else { upgradeFeature = "QR import"; showUpgradeDialog = true }
+                    }
                     CardDivider()
                     // Publish URL + service hint
                     Column(
@@ -382,7 +399,14 @@ private fun StreamTab(
                     }
                 }
                 CardDivider()
-                CardActionRow(Icons.Outlined.Add, "Save Current Destination", onClick = onSaveDestination)
+                CardActionRow(Icons.Outlined.Add, "Save Current Destination", onClick = {
+                    if (savedDestinations.size >= entitlements.maxSavedDestinations) {
+                        upgradeFeature = "saving multiple destinations"
+                        showUpgradeDialog = true
+                    } else {
+                        onSaveDestination()
+                    }
+                })
             }
         }
 
@@ -419,6 +443,14 @@ private fun StreamTab(
                 showQrScanner = false
             },
             onDismiss = { showQrScanner = false },
+        )
+    }
+
+    if (showUpgradeDialog) {
+        UpgradeDialog(
+            feature = upgradeFeature,
+            onDismiss = { showUpgradeDialog = false },
+            onUpgrade = { showUpgradeDialog = false; onLaunchUpgrade() },
         )
     }
 }
@@ -890,6 +922,22 @@ private fun InfoTab(
 }
 
 // ── Shared Components ──────────────────────────────────────────────────────
+
+@Composable
+private fun UpgradeDialog(feature: String, onDismiss: () -> Unit, onUpgrade: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Creator Feature") },
+        text = {
+            Text(
+                "${feature.replaceFirstChar { it.uppercaseChar() }} requires a Creator subscription. " +
+                    "Upgrade to unlock unlimited streaming, multiple saved destinations, QR import, and more.",
+            )
+        },
+        confirmButton = { TextButton(onClick = onUpgrade) { Text("Upgrade") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Not Now") } },
+    )
+}
 
 @Composable
 private fun SettingsSection(

@@ -132,6 +132,8 @@ fun RootScreen(
                         diagnosticsStore = diagnosticsStore,
                         glassesClient = glassesClient,
                         runtimeMode = runtimeMode,
+                        entitlements = entitlements,
+                        onLaunchUpgrade = onLaunchUpgrade,
                     )
                 }
             }
