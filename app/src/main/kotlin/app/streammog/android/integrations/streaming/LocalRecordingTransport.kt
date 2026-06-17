@@ -1,10 +1,12 @@
 package app.streammog.android.integrations.streaming
 
+import android.content.ContentValues
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.os.Environment
+import android.provider.MediaStore
 import app.streammog.android.domain.model.StreamHealth
 import app.streammog.android.domain.model.StreamPreset
 import app.streammog.android.domain.model.VideoFrameData
@@ -199,12 +201,51 @@ class LocalRecordingTransport(
         outputFile = null
 
         if (file != null && file.exists() && file.length() > 0) {
-            diagnosticsStore.log("Recording saved: ${file.name} (${file.length() / 1024}KB)", DiagnosticsEntry.Category.stream)
-            eventDidChange?.invoke(StreamingTransportEvent.ExportedToPhotos)
+            val sizeKb = file.length() / 1024
+            diagnosticsStore.log("Recording finalized: ${file.name} ($sizeKb KB)", DiagnosticsEntry.Category.stream)
+            val exported = exportToGallery(file)
+            if (exported) {
+                file.delete()
+                diagnosticsStore.log("Gallery export successful, temp file removed", DiagnosticsEntry.Category.stream)
+                eventDidChange?.invoke(StreamingTransportEvent.ExportedToPhotos)
+            } else {
+                diagnosticsStore.log("Gallery export failed, temp file kept: ${file.absolutePath}", DiagnosticsEntry.Category.error)
+                eventDidChange?.invoke(StreamingTransportEvent.PhotosExportFailed("Failed to save recording to gallery. File kept at: ${file.name}"))
+            }
         } else {
             diagnosticsStore.log("Recording stopped with no output", DiagnosticsEntry.Category.stream)
         }
         eventDidChange?.invoke(StreamingTransportEvent.Stopped)
+    }
+
+    private suspend fun exportToGallery(file: File): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val resolver = context.contentResolver
+            val collection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val details = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES)
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(collection, details) ?: return@withContext false
+            try {
+                resolver.openOutputStream(uri)?.use { output ->
+                    file.inputStream().use { input -> input.copyTo(output) }
+                }
+                details.clear()
+                details.put(MediaStore.Video.Media.IS_PENDING, 0)
+                resolver.update(uri, details, null, null)
+                true
+            } catch (e: Exception) {
+                diagnosticsStore.log("Gallery export write error: ${e.message}", DiagnosticsEntry.Category.error)
+                resolver.delete(uri, null, null)
+                false
+            }
+        } catch (e: Exception) {
+            diagnosticsStore.log("Gallery export error: ${e.message}", DiagnosticsEntry.Category.error)
+            false
+        }
     }
 
     private suspend fun appendAudioFrame(frame: MicrophoneAudioCapture.AacFrame) {

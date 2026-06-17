@@ -31,11 +31,9 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.QrCode
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.VideocamOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -76,7 +74,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -612,26 +609,6 @@ private fun QualityTab(
                         onCheckedChange = { onUpdate(preset.copy(localBestQualityMode = it)) },
                     )
                     CardDivider()
-                    CardToggleRow(
-                        label = "Auto-delete if storage is low",
-                        checked = preset.autoDeleteRecordingsWhenLowStorage,
-                        onCheckedChange = { onUpdate(preset.copy(autoDeleteRecordingsWhenLowStorage = it)) },
-                    )
-                    CardDivider()
-                    CardStepperRow(
-                        label = "Keep under ${if (preset.recordingStorageLimitGB == 0) "No app limit" else "${preset.recordingStorageLimitGB} GB"}",
-                        value = preset.recordingStorageLimitGB,
-                        range = 0..100,
-                        onValueChange = { onUpdate(preset.copy(recordingStorageLimitGB = it)) },
-                    )
-                    CardDivider()
-                    CardPickerRow(
-                        label = "Keep for",
-                        selected = retentionDaysLabel(preset.recordingRetentionDays),
-                        options = listOf(0, 1, 3, 7, 14, 30).map { it to retentionDaysLabel(it) },
-                        onSelect = { onUpdate(preset.copy(recordingRetentionDays = it)) },
-                    )
-                    CardDivider()
                     CardPickerRow(
                         label = "Auto Split",
                         selected = splitLabel(preset.recordingSplitMinutes),
@@ -639,28 +616,8 @@ private fun QualityTab(
                         onSelect = { onUpdate(preset.copy(recordingSplitMinutes = it)) },
                     )
                     CardDivider()
-                    CardTextRow(
-                        value = preset.recordingName,
-                        onValueChange = { onUpdate(preset.copy(recordingName = it)) },
-                        placeholder = "Recording name",
-                    )
-                    CardDivider()
-                    CardTextRow(
-                        value = preset.recordingTags,
-                        onValueChange = { onUpdate(preset.copy(recordingTags = it)) },
-                        placeholder = "Tags, comma separated",
-                        imeAction = ImeAction.Done,
-                    )
-                    CardDivider()
                     Text(
-                        "Best quality uses local HEVC up to 30 Mbps. Auto-split creates separate MP4 files and exports each completed segment to Photos.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                    CardDivider()
-                    Text(
-                        "Retention cleanup runs when Settings opens and removes the oldest app recordings plus their thumbnails and metadata. Photos exports are not deleted.",
+                        "Recordings are saved to the device gallery after each session. Best quality uses H.264 up to 30 Mbps. Auto-split saves each segment as a separate video when it finishes.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -674,41 +631,6 @@ private fun QualityTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),
                     )
-                }
-            }
-        }
-
-        // ── Local Recordings ──────────────────────────────────────────────────
-        if (entitlements.canUseLocalRecording) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                SectionHeader("Local Recordings")
-                SectionCard {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Outlined.VideocamOff,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(36.dp),
-                            )
-                            Text("No Recordings", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "Recordings appear here after Local Recording is stopped.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 24.dp),
-                            )
-                        }
-                    }
-                    CardDivider()
-                    CardActionRow(Icons.Outlined.Refresh, "Refresh Recordings", onClick = {})
                 }
             }
         }
@@ -1184,9 +1106,6 @@ private fun CardStepperRow(label: String, value: Int, range: IntRange, onValueCh
         }
     }
 }
-
-private fun retentionDaysLabel(days: Int): String =
-    if (days == 0) "No age limit" else "$days day${if (days == 1) "" else "s"}"
 
 private fun splitLabel(minutes: Int): String =
     if (minutes == 0) "Off" else "$minutes min"
