@@ -7,6 +7,7 @@ import android.media.RingtoneManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.view.Surface
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.streammog.android.app.AppBrand
@@ -27,6 +28,7 @@ import app.streammog.android.domain.model.VideoTransformSettings
 import app.streammog.android.domain.protocol.GlassesSessionClient
 import app.streammog.android.domain.protocol.StreamingTransport
 import app.streammog.android.domain.protocol.StreamingTransportEvent
+import app.streammog.android.integrations.streaming.VideoPreviewDecoder
 import app.streammog.android.shared.diagnostics.DiagnosticsEntry
 import app.streammog.android.shared.diagnostics.DiagnosticsLogging
 import app.streammog.android.shared.persistence.SessionHistoryStore
@@ -67,6 +69,9 @@ class StreamingCoordinator(
 
     private val _previewSnapshot = MutableStateFlow<PreviewSnapshot?>(null)
     val previewSnapshot: StateFlow<PreviewSnapshot?> = _previewSnapshot.asStateFlow()
+
+    private val _previewVideoSize = MutableStateFlow<Pair<Int, Int>?>(null)
+    val previewVideoSize: StateFlow<Pair<Int, Int>?> = _previewVideoSize.asStateFlow()
 
     private val _exportAlertMessage = MutableStateFlow<String?>(null)
     val exportAlertMessage: StateFlow<String?> = _exportAlertMessage.asStateFlow()
@@ -118,6 +123,8 @@ class StreamingCoordinator(
     private var pendingSessionStopReason: String? = null
     private var isRunningTestStream = false
 
+    private val previewDecoder = VideoPreviewDecoder()
+
     init {
         glassesClient.statusDidChange = { status ->
             viewModelScope.launch {
@@ -150,7 +157,12 @@ class StreamingCoordinator(
         }
 
         glassesClient.videoBufferDidOutput = { frame ->
+            previewDecoder.processFrame(frame)
             streamTransport.appendVideoBuffer(frame)
+        }
+
+        previewDecoder.onVideoSizeChanged = { w, h ->
+            viewModelScope.launch { _previewVideoSize.value = w to h }
         }
 
         streamTransport.healthDidChange = { health ->
@@ -174,12 +186,17 @@ class StreamingCoordinator(
 
     override fun onCleared() {
         super.onCleared()
+        previewDecoder.release()
         durationJob?.cancel()
         connectJob?.cancel()
         sessionJob?.cancel()
         streamStartJob?.cancel()
         streamTestJob?.cancel()
         cleanupJob?.cancel()
+    }
+
+    fun setPreviewSurface(surface: Surface?) {
+        if (surface != null) previewDecoder.setSurface(surface) else previewDecoder.clearSurface()
     }
 
     fun connectGlasses() {
