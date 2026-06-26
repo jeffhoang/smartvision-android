@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.streammog.android.app.AppBrand
-import app.streammog.android.app.AppEntitlements
 import app.streammog.android.app.AppRuntimeMode
 import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.protocol.GlassesSessionClient
@@ -58,8 +57,8 @@ import app.streammog.android.ui.control.ControlScreen
 import app.streammog.android.ui.diagnostics.DiagnosticsScreen
 import app.streammog.android.ui.history.SessionHistoryScreen
 import app.streammog.android.ui.settings.SettingsScreen
-import app.streammog.android.ui.theme.StreamMogBackground
-import app.streammog.android.ui.theme.StreamMogTeal
+import app.streammog.android.ui.theme.AvaLensBackground
+import app.streammog.android.ui.theme.AvaLensTeal
 import kotlinx.coroutines.delay
 
 private enum class AppTab(val label: String) {
@@ -75,11 +74,13 @@ fun RootScreen(
     diagnosticsStore: DiagnosticsStore,
     glassesClient: GlassesSessionClient,
     runtimeMode: AppRuntimeMode,
-    entitlements: AppEntitlements,
+    onLaunchUpgrade: () -> Unit,
+    onManageSubscription: () -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
 ) {
     val keepScreenOn by coordinator.keepScreenOn.collectAsState()
     LaunchedEffect(keepScreenOn) { onKeepScreenOn(keepScreenOn) }
+    val entitlements by coordinator.entitlementsFlow.collectAsState()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = AppTab.entries
@@ -108,9 +109,9 @@ fun RootScreen(
                             },
                             label = { Text(tab.label) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = StreamMogTeal,
-                                selectedTextColor = StreamMogTeal,
-                                indicatorColor = StreamMogTeal.copy(alpha = 0.12f),
+                                selectedIconColor = AvaLensTeal,
+                                selectedTextColor = AvaLensTeal,
+                                indicatorColor = AvaLensTeal.copy(alpha = 0.12f),
                             ),
                         )
                     }
@@ -120,12 +121,19 @@ fun RootScreen(
             Box(modifier = Modifier.padding(padding)) {
                 when (tabs[selectedTab]) {
                     AppTab.CONTROL -> ControlScreen(coordinator = coordinator)
-                    AppTab.SETTINGS -> SettingsScreen(coordinator = coordinator, entitlements = entitlements)
+                    AppTab.SETTINGS -> SettingsScreen(
+                        coordinator = coordinator,
+                        entitlements = entitlements,
+                        onLaunchUpgrade = onLaunchUpgrade,
+                        onManageSubscription = onManageSubscription,
+                    )
                     AppTab.HISTORY -> SessionHistoryScreen(coordinator = coordinator)
                     AppTab.LOGS -> DiagnosticsScreen(
                         diagnosticsStore = diagnosticsStore,
                         glassesClient = glassesClient,
                         runtimeMode = runtimeMode,
+                        entitlements = entitlements,
+                        onLaunchUpgrade = onLaunchUpgrade,
                     )
                 }
             }
@@ -197,7 +205,7 @@ private fun SplashScreen(runtimeMode: AppRuntimeMode, onFinish: () -> Unit) {
                 Icon(
                     imageVector = Icons.Outlined.Cast,
                     contentDescription = null,
-                    tint = StreamMogTeal,
+                    tint = AvaLensTeal,
                     modifier = Modifier.size(72.dp),
                 )
                 Spacer(Modifier.height(20.dp))
@@ -233,7 +241,7 @@ private fun SplashScreen(runtimeMode: AppRuntimeMode, onFinish: () -> Unit) {
                         .fillMaxWidth()
                         .padding(horizontal = 40.dp)
                         .height(4.dp),
-                    color = StreamMogTeal,
+                    color = AvaLensTeal,
                     trackColor = Color.White.copy(alpha = 0.12f),
                 )
                 Spacer(Modifier.height(14.dp))

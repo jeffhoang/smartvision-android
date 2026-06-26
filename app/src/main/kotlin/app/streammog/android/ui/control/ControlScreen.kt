@@ -3,6 +3,9 @@ package app.streammog.android.ui.control
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,9 +14,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -76,6 +82,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -90,9 +97,9 @@ import app.streammog.android.domain.model.StreamPreset
 import app.streammog.android.domain.model.StreamSessionDuration
 import app.streammog.android.domain.model.StreamingState
 import app.streammog.android.domain.model.VideoTransformSettings
-import app.streammog.android.ui.theme.StreamMogError
-import app.streammog.android.ui.theme.StreamMogTeal
-import app.streammog.android.ui.theme.StreamMogWarning
+import app.streammog.android.ui.theme.AvaLensError
+import app.streammog.android.ui.theme.AvaLensTeal
+import app.streammog.android.ui.theme.AvaLensWarning
 import kotlin.math.roundToInt
 
 // ── Main screen ──────────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
     val streamHealth by coordinator.streamHealth.collectAsState()
     val streamDuration by coordinator.streamDuration.collectAsState()
     val previewSnapshot by coordinator.previewSnapshot.collectAsState()
+    val previewVideoSize by coordinator.previewVideoSize.collectAsState()
     val selectedPreset by coordinator.selectedPreset.collectAsState()
     val systemWarning by coordinator.systemWarningMessage.collectAsState()
     val exportAlert by coordinator.exportAlertMessage.collectAsState()
@@ -113,6 +121,7 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
     var showPreviewTools by remember { mutableStateOf(false) }
     var showStatusTray by remember { mutableStateOf(false) }
     var isPreviewExpanded by remember { mutableStateOf(false) }
+    var cardSurface by remember { mutableStateOf<Surface?>(null) }
 
     // Inline status: error takes priority over warning
     val statusMessage = deviceStatus.lastError ?: systemWarning
@@ -148,11 +157,20 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
                 modifier = Modifier.weight(1f),
                 deviceStatus = deviceStatus,
                 previewSnapshot = previewSnapshot,
+                videoSize = previewVideoSize,
                 streamHealth = streamHealth,
                 streamDuration = streamDuration,
                 previewSettings = previewSettings,
                 selectedPreset = selectedPreset,
                 onExpand = { isPreviewExpanded = true },
+                onSurfaceAvailable = { surface ->
+                    cardSurface = surface
+                    coordinator.setPreviewSurface(surface)
+                },
+                onSurfaceDestroyed = {
+                    cardSurface = null
+                    coordinator.setPreviewSurface(null)
+                },
             )
 
             RunCard(
@@ -179,10 +197,13 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
         ) {
             ExpandedPreviewOverlay(
                 previewSnapshot = previewSnapshot,
+                videoSize = previewVideoSize,
                 streamHealth = streamHealth,
                 streamDuration = streamDuration,
                 previewSettings = previewSettings,
                 selectedPreset = selectedPreset,
+                onSurfaceAvailable = { surface -> coordinator.setPreviewSurface(surface) },
+                onSurfaceDestroyed = { coordinator.setPreviewSurface(cardSurface) },
                 onDismiss = { isPreviewExpanded = false },
                 onLooks = { showPreviewTools = true },
                 onStatus = { showStatusTray = true },
@@ -218,11 +239,14 @@ fun ControlScreen(coordinator: StreamingCoordinator) {
 private fun PreviewCard(
     deviceStatus: DeviceStatus,
     previewSnapshot: app.streammog.android.domain.model.PreviewSnapshot?,
+    videoSize: Pair<Int, Int>?,
     streamHealth: StreamHealth,
     streamDuration: StreamSessionDuration,
     previewSettings: VideoTransformSettings,
     selectedPreset: StreamPreset,
     onExpand: () -> Unit,
+    onSurfaceAvailable: (Surface) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val hasSignal = previewSnapshot != null
@@ -277,19 +301,45 @@ private fun PreviewCard(
                     }
                     StatusPill(
                         title = if (hasSignal) "Signal" else "No signal",
-                        color = if (hasSignal) StreamMogTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (hasSignal) AvaLensTeal else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
             // Video area with HUD overlay — fills remaining card height
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .background(Color.Black),
             ) {
-                // Content — no signal or has signal
+                val surfaceModifier = videoSize
+                    ?.takeIf { (w, h) -> w > 0 && h > 0 }
+                    ?.let { (w, h) ->
+                        val videoRatio = w.toFloat() / h
+                        val areaRatio = constraints.maxWidth.toFloat() / constraints.maxHeight
+                        if (areaRatio > videoRatio) {
+                            Modifier.fillMaxHeight().aspectRatio(videoRatio).align(Alignment.Center)
+                        } else {
+                            Modifier.fillMaxWidth().aspectRatio(videoRatio).align(Alignment.Center)
+                        }
+                    } ?: Modifier.fillMaxSize()
+
+                AndroidView(
+                    factory = { ctx ->
+                        SurfaceView(ctx).also { sv ->
+                            sv.holder.addCallback(object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) =
+                                    onSurfaceAvailable(holder.surface)
+                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) = Unit
+                                override fun surfaceDestroyed(holder: SurfaceHolder) = onSurfaceDestroyed()
+                            })
+                        }
+                    },
+                    modifier = surfaceModifier,
+                )
+
+                // Placeholder — shown until frames arrive
                 if (!hasSignal) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -313,31 +363,6 @@ private fun PreviewCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.45f),
                             modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(
-                            Icons.Outlined.Cast,
-                            contentDescription = null,
-                            tint = StreamMogTeal,
-                            modifier = Modifier.size(32.dp),
-                        )
-                        Text(
-                            "Frame ${previewSnapshot!!.frameIndex}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                        Text(
-                            previewSnapshot.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f),
                         )
                     }
                 }
@@ -391,20 +416,49 @@ private fun HudInfoText(text: String) {
 @Composable
 private fun ExpandedPreviewOverlay(
     previewSnapshot: app.streammog.android.domain.model.PreviewSnapshot?,
+    videoSize: Pair<Int, Int>?,
     streamHealth: StreamHealth,
     streamDuration: StreamSessionDuration,
     previewSettings: VideoTransformSettings,
     selectedPreset: StreamPreset,
+    onSurfaceAvailable: (Surface) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
     onDismiss: () -> Unit,
     onLooks: () -> Unit,
     onStatus: () -> Unit,
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        // Content
+        val surfaceModifier = videoSize
+            ?.takeIf { (w, h) -> w > 0 && h > 0 }
+            ?.let { (w, h) ->
+                val videoRatio = w.toFloat() / h
+                val areaRatio = constraints.maxWidth.toFloat() / constraints.maxHeight
+                if (areaRatio > videoRatio) {
+                    Modifier.fillMaxHeight().aspectRatio(videoRatio).align(Alignment.Center)
+                } else {
+                    Modifier.fillMaxWidth().aspectRatio(videoRatio).align(Alignment.Center)
+                }
+            } ?: Modifier.fillMaxSize()
+
+        AndroidView(
+            factory = { ctx ->
+                SurfaceView(ctx).also { sv ->
+                    sv.holder.addCallback(object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) =
+                            onSurfaceAvailable(holder.surface)
+                        override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) = Unit
+                        override fun surfaceDestroyed(holder: SurfaceHolder) = onSurfaceDestroyed()
+                    })
+                }
+            },
+            modifier = surfaceModifier,
+        )
+
+        // Placeholder — shown until frames arrive
         if (previewSnapshot == null) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -428,32 +482,6 @@ private fun ExpandedPreviewOverlay(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.45f),
                     modifier = Modifier.padding(top = 6.dp),
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(
-                    Icons.Outlined.Cast,
-                    contentDescription = null,
-                    tint = StreamMogTeal,
-                    modifier = Modifier.size(56.dp),
-                )
-                Text(
-                    "Frame ${previewSnapshot.frameIndex}",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-                Text(
-                    previewSnapshot.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
@@ -584,10 +612,10 @@ private fun RunCard(
 
     // Header pill
     val (pillText, pillColor) = when {
-        canStartAction -> "Ready in 1 tap" to StreamMogTeal
-        isStreaming -> (if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Recording now" else "Live now") to StreamMogTeal
-        isRecovering || isBusy -> "Starting" to StreamMogWarning
-        streamingState is StreamingState.Failed -> "Needs prep" to StreamMogError
+        canStartAction -> "Ready in 1 tap" to AvaLensTeal
+        isStreaming -> (if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Recording now" else "Live now") to AvaLensTeal
+        isRecovering || isBusy -> "Starting" to AvaLensWarning
+        streamingState is StreamingState.Failed -> "Needs prep" to AvaLensError
         isConnected -> "Needs prep" to MaterialTheme.colorScheme.onSurfaceVariant
         else -> "Needs prep" to MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -605,7 +633,7 @@ private fun RunCard(
             primaryTitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING) "Stop Recording" else "Stop Stream"
             primarySubtitle = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
                 "Recording is active on this phone." else "Live stream is active. Tap to end it cleanly."
-            primaryColor = StreamMogError
+            primaryColor = AvaLensError
             primaryIcon = Icons.Outlined.StopCircle
             primaryEnabled = true
             primaryAction = onStopStreaming
@@ -629,7 +657,7 @@ private fun RunCard(
                     "Session is ready. Tap to begin recording." else "Session is ready. Tap to go live."
             }
             primaryColor = if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
-                MaterialTheme.colorScheme.tertiary else StreamMogTeal
+                MaterialTheme.colorScheme.tertiary else AvaLensTeal
             primaryIcon = Icons.Outlined.Cast
             primaryEnabled = canStartAction
             primaryAction = onStartStreaming
@@ -762,7 +790,7 @@ private fun RunCard(
                         )
                         if (isStreaming || isRecovering || isBusy) {
                             DropdownMenuItem(
-                                text = { Text("Stop All Activity", color = StreamMogError) },
+                                text = { Text("Stop All Activity", color = AvaLensError) },
                                 onClick = { onStopAll(); showMoreMenu = false },
                             )
                         }
@@ -794,11 +822,11 @@ private fun OperatorIconButton(
                 .height(42.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(
-                    if (isActive) StreamMogTeal.copy(alpha = 0.15f)
+                    if (isActive) AvaLensTeal.copy(alpha = 0.15f)
                     else MaterialTheme.colorScheme.surfaceVariant,
                 )
                 .then(
-                    if (isActive) Modifier.border(1.dp, StreamMogTeal.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    if (isActive) Modifier.border(1.dp, AvaLensTeal.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
                     else Modifier
                 ),
             contentAlignment = Alignment.Center,
@@ -808,7 +836,7 @@ private fun OperatorIconButton(
                 contentDescription = label,
                 modifier = Modifier.size(20.dp),
                 tint = when {
-                    isActive -> StreamMogTeal
+                    isActive -> AvaLensTeal
                     !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     else -> MaterialTheme.colorScheme.onSurface
                 },
@@ -818,7 +846,7 @@ private fun OperatorIconButton(
             label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = if (isActive) StreamMogTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) AvaLensTeal else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
@@ -827,7 +855,7 @@ private fun OperatorIconButton(
 
 @Composable
 private fun InlineControlStatus(message: String, isError: Boolean) {
-    val color = if (isError) StreamMogError else StreamMogWarning
+    val color = if (isError) AvaLensError else AvaLensWarning
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -893,12 +921,12 @@ private fun StatusTray(
     }
 
     val statusColor = when {
-        streamingState is StreamingState.Failed -> StreamMogError
+        streamingState is StreamingState.Failed -> AvaLensError
         isStreaming -> if (selectedPreset.transport == StreamPreset.Transport.LOCAL_RECORDING)
-            MaterialTheme.colorScheme.tertiary else StreamMogTeal
+            MaterialTheme.colorScheme.tertiary else AvaLensTeal
         streamingState is StreamingState.StartingStream || streamingState is StreamingState.Recovering ||
-            deviceStatus.connectionState == ConnectionState.CONNECTING -> StreamMogWarning
-        deviceStatus.connectionState == ConnectionState.CONNECTED -> StreamMogTeal
+            deviceStatus.connectionState == ConnectionState.CONNECTING -> AvaLensWarning
+        deviceStatus.connectionState == ConnectionState.CONNECTED -> AvaLensTeal
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -926,10 +954,10 @@ private fun StatusTray(
     }
 
     val healthColor = when (healthTitle) {
-        "Good", "Recovered" -> StreamMogTeal
+        "Good", "Recovered" -> AvaLensTeal
         "Standby" -> MaterialTheme.colorScheme.onSurfaceVariant
-        "No Frames" -> StreamMogError
-        else -> StreamMogWarning
+        "No Frames" -> AvaLensError
+        else -> AvaLensWarning
     }
 
     val audioLabel = when {
@@ -961,8 +989,8 @@ private fun StatusTray(
         else -> null
     }
     val focusColor = when {
-        !deviceStatus.lastError.isNullOrEmpty() -> StreamMogError
-        !systemWarning.isNullOrEmpty() -> StreamMogWarning
+        !deviceStatus.lastError.isNullOrEmpty() -> AvaLensError
+        !systemWarning.isNullOrEmpty() -> AvaLensWarning
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -1210,7 +1238,7 @@ private fun PreviewToolsTray(
                     )
                     if (!settings.isIdentityTransform) {
                         TextButton(onClick = { onUpdate(VideoTransformSettings.identity) }) {
-                            Text("Reset", color = StreamMogError)
+                            Text("Reset", color = AvaLensError)
                         }
                     }
                 }
@@ -1329,7 +1357,7 @@ private fun PreviewToolsTray(
 
             // Apply to Stream — amber callout card
             Card(
-                colors = CardDefaults.cardColors(containerColor = StreamMogWarning.copy(alpha = 0.10f)),
+                colors = CardDefaults.cardColors(containerColor = AvaLensWarning.copy(alpha = 0.10f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -1341,13 +1369,13 @@ private fun PreviewToolsTray(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(StreamMogWarning.copy(alpha = 0.20f)),
+                            .background(AvaLensWarning.copy(alpha = 0.20f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Outlined.Tune,
                             contentDescription = null,
-                            tint = StreamMogWarning,
+                            tint = AvaLensWarning,
                             modifier = Modifier.size(20.dp),
                         )
                     }

@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import app.streammog.android.coordinator.StreamingCoordinator
 import app.streammog.android.domain.model.StreamPreset
 import app.streammog.android.domain.model.StreamSessionRecord
-import app.streammog.android.ui.theme.StreamMogError
+import app.streammog.android.ui.theme.AvaLensError
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -107,7 +107,7 @@ fun SessionHistoryScreen(coordinator: StreamingCoordinator) {
 @Composable
 private fun SessionCard(session: StreamSessionRecord) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
-    val failedColor = StreamMogError
+    val failedColor = AvaLensError
     val outcomeColor = if (session.outcome == StreamSessionRecord.Outcome.FAILED)
         failedColor else MaterialTheme.colorScheme.onSurfaceVariant
 
