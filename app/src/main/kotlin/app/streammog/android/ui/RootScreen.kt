@@ -57,8 +57,8 @@ import app.streammog.android.ui.control.ControlScreen
 import app.streammog.android.ui.diagnostics.DiagnosticsScreen
 import app.streammog.android.ui.history.SessionHistoryScreen
 import app.streammog.android.ui.settings.SettingsScreen
-import app.streammog.android.ui.theme.StreamMogBackground
-import app.streammog.android.ui.theme.StreamMogTeal
+import app.streammog.android.ui.theme.AvaLensBackground
+import app.streammog.android.ui.theme.AvaLensTeal
 import kotlinx.coroutines.delay
 
 private enum class AppTab(val label: String) {
@@ -109,9 +109,9 @@ fun RootScreen(
                             },
                             label = { Text(tab.label) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = StreamMogTeal,
-                                selectedTextColor = StreamMogTeal,
-                                indicatorColor = StreamMogTeal.copy(alpha = 0.12f),
+                                selectedIconColor = AvaLensTeal,
+                                selectedTextColor = AvaLensTeal,
+                                indicatorColor = AvaLensTeal.copy(alpha = 0.12f),
                             ),
                         )
                     }
@@ -205,7 +205,7 @@ private fun SplashScreen(runtimeMode: AppRuntimeMode, onFinish: () -> Unit) {
                 Icon(
                     imageVector = Icons.Outlined.Cast,
                     contentDescription = null,
-                    tint = StreamMogTeal,
+                    tint = AvaLensTeal,
                     modifier = Modifier.size(72.dp),
                 )
                 Spacer(Modifier.height(20.dp))
@@ -241,7 +241,7 @@ private fun SplashScreen(runtimeMode: AppRuntimeMode, onFinish: () -> Unit) {
                         .fillMaxWidth()
                         .padding(horizontal = 40.dp)
                         .height(4.dp),
-                    color = StreamMogTeal,
+                    color = AvaLensTeal,
                     trackColor = Color.White.copy(alpha = 0.12f),
                 )
                 Spacer(Modifier.height(14.dp))

@@ -6,7 +6,7 @@ import app.streammog.android.app.AppEnvironment
 import app.streammog.android.service.StreamingForegroundService
 import java.lang.ref.WeakReference
 
-class StreamMogApplication : Application() {
+class AvaLensApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()

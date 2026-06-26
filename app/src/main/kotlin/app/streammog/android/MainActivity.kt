@@ -13,11 +13,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.streammog.android.ui.RootScreen
-import app.streammog.android.ui.theme.StreamMogTheme
+import app.streammog.android.ui.theme.AvaLensTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private val app get() = application as StreamMogApplication
+    private val app get() = application as AvaLensApplication
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            StreamMogTheme {
+            AvaLensTheme {
                 RootScreen(
                     coordinator = env.coordinator,
                     diagnosticsStore = env.diagnosticsStore,
