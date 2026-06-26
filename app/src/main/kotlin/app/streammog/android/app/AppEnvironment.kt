@@ -11,6 +11,7 @@ import app.streammog.android.integrations.streaming.RoutingStreamTransport
 import app.streammog.android.shared.diagnostics.DiagnosticsStore
 import app.streammog.android.shared.persistence.SessionHistoryStore
 import app.streammog.android.shared.persistence.StreamPresetStore
+import com.meta.wearable.dat.core.Wearables
 // Single holder for all application-scoped singletons (mirrors iOS AppEnvironment).
 // Held on the Application class so it outlives any individual Activity.
 class AppEnvironment private constructor(
@@ -33,10 +34,20 @@ class AppEnvironment private constructor(
 
             val glassesClient: GlassesSessionClient = when (runtimeMode) {
                 AppRuntimeMode.MOCK -> MockGlassesSessionClient(diagnosticsStore)
-                AppRuntimeMode.REAL -> MetaDATGlassesSessionClient(
-                    diagnosticsStore = diagnosticsStore,
-                    activityProvider = activityRef,
-                )
+                AppRuntimeMode.REAL -> {
+                    // The Meta Wearables SDK must be initialized before any Wearables API is
+                    // touched; MetaDATGlassesSessionClient's init reads registration state.
+                    val initResult = Wearables.initialize(context.applicationContext)
+                    if (initResult.isSuccess) {
+                        diagnosticsStore.log("Meta Wearables SDK initialized")
+                    } else {
+                        diagnosticsStore.log("Meta Wearables SDK init failed: ${initResult.errorOrNull()?.description}")
+                    }
+                    MetaDATGlassesSessionClient(
+                        diagnosticsStore = diagnosticsStore,
+                        activityProvider = activityRef,
+                    )
+                }
             }
 
             val streamTransport = RoutingStreamTransport(diagnosticsStore, context)
